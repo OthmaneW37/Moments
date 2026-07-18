@@ -39,8 +39,9 @@ There is **no automated test suite**. Verify changes by exercising the API (e.g.
 
 ### Frontend (`frontend/src/`)
 - **`api.js`** — the single API client (`api.*`), token storage in `localStorage` (a 401 auto-clears it), date helpers, and the shared UI constants **`CATEGORY_META`** (category → label/emoji/colour) and **`REACTION_EMOJIS`**.
-- **`App.jsx`** — root component. No router: it holds a `view` state (`feed | discover | day | profile | notifs`) switched by the bottom nav, plus the event-form modal and the day/timeline sub-tab. Owns auth gating and the notifications poll.
-- **`components/`** — `AuthScreen`, `WeekStrip`, `EventCard`/`EventForm` (agenda), `Feed`, `Discover`, `MomentCard` (shared social card with reactions/comments/tags, used by both Feed and Discover), `Notifications`, `Memories`, `Profile`, `Timeline`.
+- **`App.jsx`** — root component. No router: it holds a `view` state (`feed | discover | day | profile | notifs | recap`) switched by the bottom nav, plus the event-form modal and the day/timeline sub-tab. Owns auth gating and the notifications poll. The feed view adds `.screen--immersive` (zero padding, full height) to the scroll container.
+- **`useReaction.js`** — shared hook for emoji reactions (optimistic update + double-tap-❤️ helper), used by every surface that can react.
+- **`components/`** — `AuthScreen`, `WeekStrip`, `EventCard`/`EventForm` (agenda), `Feed` → `ImmersiveFeed` (full-screen vertical scroll-snap feed, one moment per screen, TikTok-style with agenda overlay), `Discover` (4:5 immersive `MomentCard`s + category filter chips), `MomentViewer` (fullscreen vertical viewer opened from Discover), `Comments` (shared), `Notifications`, `Memories` (rendered inside `Timeline`), `Profile`, `Recap`, `Timeline`.
 
 ### Key cross-cutting conventions
 - **Everything is per-account.** Events carry `user_id`; every query filters by the authenticated user. A user only ever sees their own calendar plus friends'/public moments in the social views.
