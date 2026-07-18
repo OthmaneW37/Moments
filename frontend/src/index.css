@@ -5,6 +5,14 @@
    ===================================================================== */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* Tactile : pas de zoom au double-tap (indispensable pour le double-tap ❤️),
+   pas de photo qui se sélectionne ou se drag pendant les gestes */
+button, a, img, .ifeed-photo, .moment-media, .viewer-photo { touch-action: manipulation; }
+img { user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
+
+/* iOS zoome sur les champs < 16px : on impose le minimum */
+input, textarea, select { font-size: 16px; }
+
 :root {
   /* Palette papier / encre */
   --paper: #f6f2ea;          /* fond de l'app */
@@ -55,7 +63,7 @@ button { font-family: inherit; color: inherit; }
   position: relative;
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100dvh;
+  height: 100dvh;
   background: var(--paper);
   display: flex;
   flex-direction: column;
@@ -63,7 +71,7 @@ button { font-family: inherit; color: inherit; }
 @media (min-width: 520px) {
   body { padding: 20px 0; }
   .phone {
-    min-height: calc(100dvh - 40px);
+    height: calc(100dvh - 40px);
     border: 1px solid var(--border-strong);
     border-radius: 20px;
     overflow: hidden;
@@ -75,7 +83,7 @@ button { font-family: inherit; color: inherit; }
 .topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px 10px;
+  padding: calc(14px + env(safe-area-inset-top)) 18px 10px;
   background: color-mix(in srgb, var(--paper) 90%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
@@ -110,6 +118,7 @@ button { font-family: inherit; color: inherit; }
 /* ---- Screen (contenu scrollable) ---- */
 .screen {
   flex: 1;
+  min-height: 0;
   padding: 10px 18px calc(var(--nav-h) + 26px);
   overflow-y: auto;
 }
@@ -408,40 +417,336 @@ button { font-family: inherit; color: inherit; }
 .auth-error { color: var(--danger); font-size: 0.85rem; margin: 0; }
 .auth-ok { color: #2e6b34; font-size: 0.85rem; margin: 0; }
 
-/* ---- Feed social ---- */
-.feed { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
-.feed-card {
+/* ---- Feed social (cartes immersives) ---- */
+.feed { display: flex; flex-direction: column; gap: 22px; padding-top: 4px; }
+
+.moment {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px 16px;
+  border-radius: 20px;
+  overflow: hidden;
   box-shadow: var(--shadow-soft);
 }
-.feed-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.feed-avatar {
-  font-size: 1.25rem; background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 50%; width: 40px; height: 40px; flex-shrink: 0;
+
+.moment-media { position: relative; }
+.moment-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.moment-track::-webkit-scrollbar { display: none; }
+.moment-track img {
+  flex: 0 0 100%;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  scroll-snap-align: center;
+  display: block;
+}
+
+/* Voiles dégradés haut + bas pour la lisibilité du texte posé sur la photo */
+.moment-veil {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 24%),
+    linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 46%);
+}
+
+.moment-top {
+  position: absolute; top: 12px; left: 12px; right: 12px; z-index: 2;
+  display: flex; align-items: center; gap: 9px;
+}
+.moment-avatar {
+  font-size: 1.1rem; width: 38px; height: 38px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.16);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.35); border-radius: 50%;
 }
-.feed-who { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; flex: 1; }
-.feed-who strong { font-size: 0.92rem; }
-.feed-who .muted { font-size: 0.74rem; }
-.feed-title {
+.moment-who { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; flex: 1; }
+.moment-who strong { color: #fff; font-size: 0.9rem; text-shadow: 0 1px 3px rgba(0,0,0,0.45); }
+.moment-who span {
+  color: rgba(255,255,255,0.82); font-size: 0.72rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.moment-count {
+  flex-shrink: 0; font-size: 0.68rem; font-weight: 700; color: #fff;
+  background: rgba(0,0,0,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  padding: 3px 9px; border-radius: 999px;
+}
+
+.moment-cat {
+  position: absolute; top: 56px; right: 12px; z-index: 2;
+  font-size: 0.72rem; font-weight: 700; color: #fff;
+  background: color-mix(in srgb, var(--cat) 80%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 5px 11px; border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+}
+
+.moment-caption {
+  position: absolute; left: 16px; right: 16px; bottom: 15px; z-index: 2;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.moment-vibes { display: flex; flex-wrap: wrap; gap: 5px; }
+.moment-vibes span {
+  font-size: 0.7rem; font-weight: 600; color: #fff;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 3px 9px; border-radius: 999px;
+}
+.moment-caption h3 {
   font-family: var(--font-display);
-  margin: 0 0 6px; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em;
+  margin: 0; color: #fff; font-size: 1.45rem; font-weight: 700;
+  letter-spacing: -0.01em; line-height: 1.14;
+  text-shadow: 0 1px 10px rgba(0,0,0,0.5);
 }
-.feed-photos {
-  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
-  border-radius: 10px;
+.moment-caption p {
+  margin: 0; color: rgba(255,255,255,0.92); font-size: 0.85rem;
+  text-shadow: 0 1px 5px rgba(0,0,0,0.55);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.feed-photos::-webkit-scrollbar { display: none; }
-.feed-photos img {
-  width: 100%; max-width: 100%; height: auto; max-height: 360px;
-  object-fit: cover; border-radius: 10px; flex-shrink: 0;
-  border: 1px solid var(--border);
+
+.moment-bar { display: flex; align-items: center; gap: 8px; padding: 11px 13px; }
+.moment-media { cursor: pointer; }
+
+/* Cœur qui pop au double-tap */
+.heart-burst {
+  position: absolute; top: 50%; left: 50%; z-index: 3;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 5rem; pointer-events: none;
+  filter: drop-shadow(0 3px 12px rgba(0,0,0,0.4));
+  animation: heart-pop 0.85s ease-out forwards;
 }
-.feed-photos img:not(:only-child) { width: 80%; }
-.feed-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.heart-burst.big { font-size: 7rem; }
+@keyframes heart-pop {
+  0%   { transform: translate(-50%, -50%) scale(0);   opacity: 0; }
+  15%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+  35%  { transform: translate(-50%, -50%) scale(0.95); opacity: 1; }
+  70%  { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+  100% { transform: translate(-50%, -58%) scale(1);    opacity: 0; }
+}
+
+/* ---- Fil du jour (feed = journée qu'on lit) ---- */
+/* ---- Feed immersif plein écran (façon TikTok, identité Moments) ---- */
+.screen--immersive { padding: 0; overflow: hidden; }
+.ifeed-empty { padding: 40px 24px; }
+
+.ifeed-scroller {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* pas de pull-to-refresh qui casse le snap */
+  background: #000;
+}
+.ifeed-scroller::-webkit-scrollbar { display: none; }
+
+.ifeed-slide {
+  position: relative;
+  height: 100%;
+  scroll-snap-align: start; scroll-snap-stop: always;
+  overflow: hidden;
+  background: #000;
+}
+.ifeed-photo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  cursor: pointer;
+}
+.ifeed-veil {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 24%),
+    linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 46%);
+}
+
+/* Contexte agenda — l'ADN Moments */
+.ifeed-context {
+  position: absolute; top: calc(16px + env(safe-area-inset-top)); left: 16px; z-index: 3;
+  display: flex; flex-direction: column; line-height: 1; color: #fff;
+}
+.ifeed-day {
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: rgba(255,255,255,0.85); text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.ifeed-time {
+  font-family: var(--font-display);
+  font-size: 2.4rem; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+
+/* Rail d'actions à droite (TikTok) */
+.ifeed-rail {
+  position: absolute; right: 12px; bottom: calc(var(--nav-h) + 20px); z-index: 4;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.ifeed-cat {
+  width: 46px; height: 46px; border-radius: 50%; font-size: 1.35rem;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--cat) 82%, transparent);
+  border: 1px solid rgba(255,255,255,0.3);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+.ifeed-act {
+  background: none; border: 0; cursor: pointer; color: #fff;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.ifeed-act > span {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.28);
+  display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+}
+.ifeed-act.on > span { background: rgba(180,81,31,0.55); border-color: var(--accent); }
+.ifeed-act small { font-size: 0.72rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+.ifeed-multi {
+  font-size: 0.68rem; font-weight: 700; color: #fff;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.25);
+  padding: 3px 8px; border-radius: 999px;
+}
+
+/* Légende en bas à gauche */
+.ifeed-caption {
+  position: absolute; left: 16px; right: 82px; bottom: calc(var(--nav-h) + 20px); z-index: 3;
+  display: flex; flex-direction: column; gap: 8px; color: #fff;
+}
+.ifeed-who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ifeed-avatar {
+  width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%;
+  background: rgba(255,255,255,0.16); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.35);
+  display: flex; align-items: center; justify-content: center; font-size: 1rem;
+}
+.ifeed-who strong { font-size: 0.95rem; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.ifeed-handle { font-size: 0.74rem; color: rgba(255,255,255,0.8); text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+.ifeed-title {
+  font-family: var(--font-display);
+  margin: 0; font-size: 1.7rem; font-weight: 700; line-height: 1.12; letter-spacing: -0.01em;
+  text-shadow: 0 1px 12px rgba(0,0,0,0.55);
+}
+.ifeed-notes {
+  margin: 0; font-size: 0.88rem; color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 5px rgba(0,0,0,0.6);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ifeed-vibes { display: flex; flex-wrap: wrap; gap: 5px; }
+.ifeed-vibes span {
+  font-size: 0.7rem; font-weight: 600; color: #fff;
+  background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.28);
+  padding: 3px 9px; border-radius: 999px;
+}
+
+/* Feuilles réaction / commentaires */
+.ifeed-sheet {
+  position: absolute; left: 12px; right: 12px; bottom: calc(var(--nav-h) + 14px); z-index: 6;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 18px; box-shadow: 0 -6px 24px rgba(0,0,0,0.35);
+  animation: sheet-up 0.2s ease-out;
+}
+.ifeed-sheet.comments-sheet { max-height: 50vh; overflow-y: auto; padding: 4px 14px 12px; }
+.ifeed-sheet .comments { border-top: 0; padding: 8px 0 0; }
+
+/* ---- Viewer plein écran (façon TikTok) ---- */
+.viewer {
+  position: fixed; inset: 0; z-index: 50; background: #000;
+}
+.viewer-close {
+  position: absolute; top: 14px; right: 14px; z-index: 60;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.25); color: #fff; font-size: 1.05rem; cursor: pointer;
+}
+.viewer-scroller {
+  height: 100%; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none;
+}
+.viewer-scroller::-webkit-scrollbar { display: none; }
+.viewer-slide {
+  position: relative; height: 100%; scroll-snap-align: start;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.viewer-photo {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.viewer-veil {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 22%),
+    linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0) 48%);
+}
+.viewer-info {
+  position: absolute; left: 18px; right: 78px; bottom: 26px; z-index: 4;
+  display: flex; flex-direction: column; gap: 9px; color: #fff;
+}
+.viewer-who { display: flex; align-items: center; gap: 10px; }
+.viewer-avatar {
+  width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%;
+  background: rgba(255,255,255,0.16); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.35);
+  display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+}
+.viewer-who strong { display: block; font-size: 0.95rem; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.viewer-sub {
+  display: block; font-size: 0.72rem; color: rgba(255,255,255,0.82);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.viewer-cat {
+  margin-left: auto; flex-shrink: 0; font-size: 0.7rem; font-weight: 700; color: #fff;
+  background: color-mix(in srgb, var(--cat) 82%, transparent);
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 4px 10px; border-radius: 999px;
+}
+.viewer-title {
+  font-family: var(--font-display); margin: 0; font-size: 1.7rem; font-weight: 700;
+  line-height: 1.12; letter-spacing: -0.01em; text-shadow: 0 1px 12px rgba(0,0,0,0.55);
+}
+.viewer-notes {
+  margin: 0; font-size: 0.88rem; color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 5px rgba(0,0,0,0.6);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.viewer-actions {
+  position: absolute; right: 14px; bottom: 30px; z-index: 4;
+  display: flex; flex-direction: column; gap: 18px; align-items: center;
+}
+.viewer-act {
+  background: none; border: 0; cursor: pointer; color: #fff;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.viewer-act span {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(255,255,255,0.14); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.28);
+  display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+}
+.viewer-act.on span { background: rgba(180,81,31,0.5); border-color: var(--accent); }
+.viewer-act small { font-size: 0.72rem; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+.viewer-sheet {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 18px; box-shadow: 0 -6px 24px rgba(0,0,0,0.3);
+  animation: sheet-up 0.2s ease-out;
+}
+@keyframes sheet-up { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.react-sheet {
+  display: flex; justify-content: space-around; padding: 12px 8px;
+}
+.react-sheet button {
+  border: 0; background: none; cursor: pointer; font-size: 2rem; line-height: 1;
+  padding: 4px; border-radius: 50%; transition: transform 0.1s;
+}
+.react-sheet button:hover { transform: scale(1.25); }
+.react-sheet button.chosen { background: var(--accent-tint); }
+.comments-sheet { max-height: 55vh; overflow-y: auto; padding: 4px 14px 12px; }
+.comments-sheet .comments { border-top: 0; padding: 8px 0 0; }
+
 .like-btn {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
   color: var(--ink); padding: 7px 14px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
@@ -474,21 +779,8 @@ button { font-family: inherit; color: inherit; }
 .react-picker button:hover { transform: scale(1.25); }
 .react-picker button.chosen { background: var(--accent-tint); }
 
-/* Tags IA */
-.ai-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
-.ai-badge {
-  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em;
-  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  padding: 2px 6px; border-radius: 5px;
-}
-.ai-tag {
-  font-size: 0.72rem; color: var(--muted);
-  background: var(--surface-2); border: 1px solid var(--border);
-  padding: 3px 9px; border-radius: 999px;
-}
-
 /* ---- Commentaires ---- */
-.comments { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.comments { border-top: 1px solid var(--border); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
 .comment { display: flex; align-items: flex-start; gap: 8px; }
 .comment-avatar { font-size: 1rem; margin-top: 2px; }
 .comment-body {

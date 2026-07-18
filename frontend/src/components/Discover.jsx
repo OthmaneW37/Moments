@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, CATEGORY_META } from '../api'
 import MomentCard from './MomentCard'
+import MomentViewer from './MomentViewer'
 
 export default function Discover() {
   const [data, setData] = useState(null)
   const [cat, setCat] = useState(null) // null = tout
+  const [viewer, setViewer] = useState(null) // { list, index }
 
   useEffect(() => {
     api.discover().then(setData).catch(() => setData({ city: '', moments: [] }))
@@ -65,7 +67,21 @@ export default function Discover() {
       ) : shown.length === 0 ? (
         <p className="muted center">Aucun moment public dans cette catégorie.</p>
       ) : (
-        shown.map((m) => <MomentCard key={m.id} moment={m} />)
+        shown.map((m) => (
+          <MomentCard
+            key={m.id}
+            moment={m}
+            onOpen={(mm) => setViewer({ list: shown, index: shown.indexOf(mm) })}
+          />
+        ))
+      )}
+
+      {viewer && (
+        <MomentViewer
+          moments={viewer.list}
+          index={viewer.index}
+          onClose={() => setViewer(null)}
+        />
       )}
     </div>
   )

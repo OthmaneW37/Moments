@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, CATEGORY_META, prettyDate } from '../api'
+import Memories from './Memories'
 
 export default function Timeline() {
   const [days, setDays] = useState(null)
@@ -22,6 +23,7 @@ export default function Timeline() {
 
   return (
     <div className="timeline">
+      <Memories />
       {days.map(({ date, moments }) => (
         <section key={date} className="timeline-day">
           <h2 className="timeline-date">{prettyDate(date)}</h2>

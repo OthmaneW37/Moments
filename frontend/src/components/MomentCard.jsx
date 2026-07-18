@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { api, CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
+import { useReaction } from '../useReaction'
+import Comments from './Comments'
 
 function feedDateLabel(iso) {
   const today = toISO(new Date())
@@ -10,74 +12,31 @@ function feedDateLabel(iso) {
   return prettyDate(iso)
 }
 
-function Comments({ eventId, onCountChange }) {
-  const [comments, setComments] = useState(null)
-  const [text, setText] = useState('')
-  const [sending, setSending] = useState(false)
-
-  useEffect(() => {
-    api.comments(eventId).then(setComments).catch(() => setComments([]))
-  }, [eventId])
-
-  async function handleSend(e) {
-    e.preventDefault()
-    if (!text.trim() || sending) return
-    setSending(true)
-    try {
-      const c = await api.addComment(eventId, text.trim())
-      setComments((cs) => [...cs, c])
-      setText('')
-      onCountChange(1)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  async function handleDelete(id) {
-    await api.deleteComment(id)
-    setComments((cs) => cs.filter((c) => c.id !== id))
-    onCountChange(-1)
-  }
-
-  if (comments === null) return <p className="muted comment-loading">…</p>
-
-  return (
-    <div className="comments">
-      {comments.map((c) => (
-        <div className="comment" key={c.id}>
-          <span className="comment-avatar">{c.emoji}</span>
-          <div className="comment-body">
-            <span className="comment-author">{c.is_me ? 'Toi' : c.display_name}</span>
-            <span className="comment-text">{c.text}</span>
-          </div>
-          {Boolean(c.is_me) && (
-            <button className="comment-del" onClick={() => handleDelete(c.id)}>×</button>
-          )}
-        </div>
-      ))}
-      <form className="comment-form" onSubmit={handleSend}>
-        <input
-          placeholder="Ajoute un commentaire…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          maxLength={500}
-        />
-        <button className="btn primary sm" type="submit" disabled={!text.trim() || sending}>➤</button>
-      </form>
-    </div>
-  )
-}
-
-export default function MomentCard({ moment }) {
+export default function MomentCard({ moment, onOpen }) {
   const meta = CATEGORY_META[moment.category] ?? CATEGORY_META.autre
   const { author } = moment
-  const [reactions, setReactions] = useState(moment.reactions || {})
-  const [myReaction, setMyReaction] = useState(moment.my_reaction || null)
-  const [total, setTotal] = useState(moment.reaction_total || 0)
+  const { myReaction, total, topEmojis, react, likeOnDoubleTap } = useReaction(moment)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [reactors, setReactors] = useState(null)
   const [showComments, setShowComments] = useState(false)
   const [commentCount, setCommentCount] = useState(moment.comments || 0)
+  const [burst, setBurst] = useState(0) // incrémenté à chaque double-tap pour rejouer l'animation
+
+  const lastTap = useRef(0)
+  const singleTimer = useRef(null)
+
+  function handleMediaTap() {
+    const now = Date.now()
+    if (now - lastTap.current < 280) {
+      clearTimeout(singleTimer.current)
+      lastTap.current = 0
+      likeOnDoubleTap()
+      setBurst((b) => b + 1)
+    } else {
+      lastTap.current = now
+      singleTimer.current = setTimeout(() => { onOpen?.(moment) }, 280)
+    }
+  }
 
   function togglePicker() {
     const opening = !pickerOpen
@@ -87,69 +46,58 @@ export default function MomentCard({ moment }) {
     }
   }
 
-  // Tags IA agrégés depuis les photos (dédupliqués)
-  const tags = [...new Set((moment.photos || []).flatMap((p) => p.tags || []))]
-
   async function handleReact(emoji) {
     setPickerOpen(false)
     setReactors(null) // la liste change, on la rechargera à la prochaine ouverture
-    // Optimiste
-    const prev = { reactions, myReaction, total }
-    const next = { ...reactions }
-    if (myReaction) next[myReaction] = Math.max(0, (next[myReaction] || 1) - 1)
-    let newMine = null
-    if (myReaction !== emoji) {
-      next[emoji] = (next[emoji] || 0) + 1
-      newMine = emoji
-    }
-    Object.keys(next).forEach((k) => next[k] === 0 && delete next[k])
-    setReactions(next)
-    setMyReaction(newMine)
-    setTotal(Object.values(next).reduce((a, b) => a + b, 0))
-    try {
-      const res = await api.react(moment.id, emoji)
-      setReactions(res.reactions)
-      setMyReaction(res.my_reaction)
-      setTotal(res.reaction_total)
-    } catch {
-      setReactions(prev.reactions); setMyReaction(prev.myReaction); setTotal(prev.total)
-    }
+    await react(emoji)
   }
 
-  const topEmojis = Object.entries(reactions).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([e]) => e)
+  // Tags IA agrégés depuis les photos (dédupliqués)
+  const tags = [...new Set((moment.photos || []).flatMap((p) => p.tags || []))]
+  const multi = moment.photos.length > 1
 
   return (
-    <article className="feed-card" style={{ '--cat': meta.color }}>
-      <header className="feed-head">
-        <span className="feed-avatar">{author.emoji}</span>
-        <div className="feed-who">
-          <strong>{author.is_me ? 'Toi' : author.display_name}</strong>
-          <span className="muted">
-            @{author.username}
-            {author.city ? ` · ${author.city}` : ''}
-            {' · '}{feedDateLabel(moment.date)}{moment.start_time ? ` · ${moment.start_time}` : ''}
-          </span>
+    <article className="moment" style={{ '--cat': meta.color }}>
+      <div className="moment-media" onClick={handleMediaTap}>
+        <div className="moment-track">
+          {moment.photos.map((p) => (
+            <img key={p.id} src={p.url} alt={moment.title} loading="lazy" />
+          ))}
         </div>
-        <span className="event-cat">{meta.emoji} {meta.label}</span>
-      </header>
 
-      <h3 className="feed-title">{moment.title}</h3>
-      {moment.notes && <p className="event-notes">{moment.notes}</p>}
+        <div className="moment-veil" aria-hidden="true" />
 
-      <div className="feed-photos">
-        {moment.photos.map((p) => (
-          <img key={p.id} src={p.url} alt={moment.title} loading="lazy" />
-        ))}
+        {burst > 0 && (
+          <span key={burst} className="heart-burst" aria-hidden="true">❤️</span>
+        )}
+
+        <header className="moment-top">
+          <span className="moment-avatar">{author.emoji}</span>
+          <div className="moment-who">
+            <strong>{author.is_me ? 'Toi' : author.display_name}</strong>
+            <span>
+              @{author.username}
+              {author.city ? ` · ${author.city}` : ''}
+              {' · '}{feedDateLabel(moment.date)}{moment.start_time ? ` · ${moment.start_time}` : ''}
+            </span>
+          </div>
+          {multi && <span className="moment-count">1 / {moment.photos.length}</span>}
+        </header>
+
+        <span className="moment-cat">{meta.emoji} {meta.label}</span>
+
+        <div className="moment-caption">
+          {tags.length > 0 && (
+            <div className="moment-vibes">
+              {tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}
+            </div>
+          )}
+          <h3>{moment.title}</h3>
+          {moment.notes && <p>{moment.notes}</p>}
+        </div>
       </div>
 
-      {tags.length > 0 && (
-        <div className="ai-tags">
-          <span className="ai-badge">IA</span>
-          {tags.map((t) => <span className="ai-tag" key={t}>{t}</span>)}
-        </div>
-      )}
-
-      <footer className="feed-foot">
+      <footer className="moment-bar">
         <div className="react-wrap">
           <button
             className={`like-btn ${myReaction ? 'liked' : ''}`}

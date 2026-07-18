@@ -106,7 +106,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="screen">
+      <div className={`screen ${view === 'feed' ? 'screen--immersive' : ''}`}>
         {view === 'feed' && <Feed key={date} />}
 
         {view === 'discover' && <Discover />}

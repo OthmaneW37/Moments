@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 
 const NOTIF_TEXT = {
-  friend_request: (n) => `t'a envoyé une demande d'ami 👋`,
-  friend_accept: (n) => `a accepté ta demande d'ami 🤝`,
+  friend_request: () => `t'a envoyé une demande d'ami 👋`,
+  friend_accept: () => `a accepté ta demande d'ami 🤝`,
   like: (n) => `a liké ton moment${n.event_title ? ` « ${n.event_title} »` : ''} ❤️`,
   comment: (n) => `a commenté ton moment${n.event_title ? ` « ${n.event_title} »` : ''} 💬`,
 }
@@ -44,7 +44,7 @@ export default function Notifications({ data, onSeen, goProfile, goFeed }) {
         <button
           className={`notif-row ${n.read ? '' : 'unread'}`}
           key={n.id}
-          onClick={() => { n.type.startsWith('friend') ? goProfile() : goFeed?.() }}
+          onClick={() => { if (n.type.startsWith('friend')) goProfile(); else goFeed?.() }}
         >
           <span className="friend-avatar">{n.actor.emoji}</span>
           <div className="notif-body">
