@@ -13,7 +13,7 @@ function feedDateLabel(iso) {
   return prettyDate(iso)
 }
 
-export default function MomentCard({ moment, onOpen }) {
+export default function MomentCard({ moment, onOpen, onOpenUser, onOpenContext }) {
   const meta = CATEGORY_META[moment.category] ?? CATEGORY_META.autre
   const { author } = moment
   const { myReaction, total, topEmojis, react, likeOnDoubleTap } = useReaction(moment)
@@ -73,8 +73,13 @@ export default function MomentCard({ moment, onOpen }) {
         )}
 
         <header className="moment-top">
-          <span className="moment-avatar">{author.emoji}</span>
-          <div className="moment-who">
+          <button
+            className="moment-avatar"
+            onClick={(e) => { e.stopPropagation(); onOpenUser?.(author.username) }}
+          >
+            {author.emoji}
+          </button>
+          <div className="moment-who" onClick={(e) => { e.stopPropagation(); onOpenUser?.(author.username) }}>
             <strong>{author.is_me ? 'Toi' : author.display_name}</strong>
             <span>
               @{author.username}
@@ -95,7 +100,14 @@ export default function MomentCard({ moment, onOpen }) {
           )}
           <h3>{moment.title}</h3>
           {moment.notes && <p>{moment.notes}</p>}
-          <ContextCard context={moment.context} />
+          {moment.context?.title && (
+            <button
+              className="ctx-card-btn"
+              onClick={(e) => { e.stopPropagation(); onOpenContext?.(moment.context) }}
+            >
+              <ContextCard context={moment.context} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -135,7 +147,11 @@ export default function MomentCard({ moment, onOpen }) {
       </footer>
 
       {showComments && (
-        <Comments eventId={moment.id} onCountChange={(d) => setCommentCount((n) => n + d)} />
+        <Comments
+          eventId={moment.id}
+          onCountChange={(d) => setCommentCount((n) => n + d)}
+          onOpenUser={onOpenUser}
+        />
       )}
     </article>
   )

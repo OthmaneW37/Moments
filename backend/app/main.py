@@ -562,7 +562,7 @@ def event_reactions(event_id: int, user: dict = Depends(current_user)):
         _can_see_event(conn, event_id, user["id"])
         rows = conn.execute(
             """
-            SELECT l.emoji AS reaction, u.username, u.display_name,
+            SELECT l.emoji AS reaction, u.username, u.display_name, u.emoji,
                    (l.user_id = ?) AS is_me
             FROM likes l JOIN users u ON u.id = l.user_id
             WHERE l.event_id = ?
@@ -618,6 +618,101 @@ def delete_comment(comment_id: int, user: dict = Depends(current_user)):
         )
         if cur.rowcount == 0:
             raise HTTPException(404, "comment not found")
+
+
+# ---------- Profils publics & fiches ----------
+
+@app.get("/api/users/{username}")
+def user_profile(username: str, user: dict = Depends(current_user)):
+    """Page profil d'un utilisateur : infos + ses moments que J'AI le droit de voir."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, username, display_name, emoji, city, created_at FROM users WHERE username = ?",
+            (username.lower().strip(),),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "utilisateur introuvable")
+        target = dict(row)
+        is_me = target["id"] == user["id"]
+        is_friend = target["id"] in friend_ids(conn, user["id"])
+
+        # Moments visibles : tous si moi/ami, sinon publics uniquement
+        if is_me or is_friend:
+            vis_clause, params = "", []
+        else:
+            vis_clause, params = "AND e.visibility = 'public'", []
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT e.*, u.username, u.display_name, u.emoji
+            FROM events e
+            JOIN photos p ON p.event_id = e.id
+            JOIN users u ON u.id = e.user_id
+            WHERE e.user_id = ? {vis_clause}
+            ORDER BY e.date DESC, COALESCE(e.start_time, '99:99') DESC, e.id DESC
+            LIMIT 60
+            """,
+            [target["id"], *params],
+        ).fetchall()
+        moments = _enrich_moments(conn, rows, user["id"])
+        stats = conn.execute(
+            "SELECT COUNT(DISTINCT p.id) AS photos, COUNT(DISTINCT e.date) AS days "
+            "FROM events e JOIN photos p ON p.event_id = e.id WHERE e.user_id = ?",
+            (target["id"],),
+        ).fetchone()
+        return {
+            "username": target["username"],
+            "display_name": target["display_name"],
+            "emoji": target["emoji"],
+            "city": target["city"],
+            "is_me": is_me,
+            "is_friend": is_friend,
+            "photos": stats["photos"],
+            "days": stats["days"],
+            "moments": moments,
+        }
+
+
+@app.get("/api/context/detail")
+def context_detail(kind: str, title: str, user: dict = Depends(current_user)):
+    """Page d'une fiche (film/série/livre/match/lieu) : notes des utilisateurs
+    + moments visibles qui en parlent."""
+    with get_conn() as conn:
+        my_circle = set(friend_ids(conn, user["id"]) + [user["id"]])
+        rows = conn.execute(
+            """
+            SELECT DISTINCT e.*, u.username, u.display_name, u.emoji
+            FROM events e
+            JOIN photos p ON p.event_id = e.id
+            JOIN users u ON u.id = e.user_id
+            WHERE e.context <> ''
+            ORDER BY e.date DESC, e.id DESC
+            """
+        ).fetchall()
+        # Filtre en Python : même fiche (kind+title) ET visible pour moi
+        matching = []
+        for r in rows:
+            try:
+                ctx = json.loads(r["context"])
+            except (TypeError, ValueError):
+                continue
+            if ctx.get("kind") != kind or (ctx.get("title") or "").lower() != title.lower():
+                continue
+            if r["user_id"] not in my_circle and r["visibility"] != "public":
+                continue
+            matching.append((r, ctx))
+        if not matching:
+            raise HTTPException(404, "fiche introuvable")
+
+        moments = _enrich_moments(conn, [r for r, _ in matching], user["id"])
+        ratings = [c.get("my_rating") for _, c in matching if c.get("my_rating")]
+        fiche = dict(matching[0][1])
+        fiche.pop("my_rating", None)
+        return {
+            "context": fiche,
+            "app_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "app_rating_count": len(ratings),
+            "moments": moments,
+        }
 
 
 # ---------- Notifications ----------

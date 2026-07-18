@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import ImmersiveFeed from './ImmersiveFeed'
+import UserSheet from './UserSheet'
+import ContextSheet from './ContextSheet'
 
 export default function Feed() {
   const [moments, setMoments] = useState(null)
+  const [userSheet, setUserSheet] = useState(null)   // username | null
+  const [ctxSheet, setCtxSheet] = useState(null)     // context | null
 
   useEffect(() => {
     api.feed().then(setMoments).catch(() => setMoments([]))
@@ -24,5 +28,27 @@ export default function Feed() {
     )
   }
 
-  return <ImmersiveFeed moments={moments} />
+  return (
+    <>
+      <ImmersiveFeed
+        moments={moments}
+        onOpenUser={(u) => { setCtxSheet(null); setUserSheet(u) }}
+        onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
+      />
+      {userSheet && (
+        <UserSheet
+          username={userSheet}
+          onClose={() => setUserSheet(null)}
+          onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
+        />
+      )}
+      {ctxSheet && (
+        <ContextSheet
+          context={ctxSheet}
+          onClose={() => setCtxSheet(null)}
+          onOpenUser={(u) => { setCtxSheet(null); setUserSheet(u) }}
+        />
+      )}
+    </>
+  )
 }

@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 
-export default function Comments({ eventId, onCountChange }) {
+function timeAgo(sqlDate) {
+  if (!sqlDate) return ''
+  const then = new Date(sqlDate.replace(' ', 'T') + 'Z')
+  const mins = Math.max(0, Math.floor((Date.now() - then.getTime()) / 60000))
+  if (mins < 1) return "à l'instant"
+  if (mins < 60) return `${mins} min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} h`
+  return `${Math.floor(hours / 24)} j`
+}
+
+export default function Comments({ eventId, onCountChange, onOpenUser }) {
   const [comments, setComments] = useState(null)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -34,18 +45,36 @@ export default function Comments({ eventId, onCountChange }) {
 
   return (
     <div className="comments">
-      {comments.map((c) => (
-        <div className="comment" key={c.id}>
-          <span className="comment-avatar">{c.emoji}</span>
-          <div className="comment-body">
-            <span className="comment-author">{c.is_me ? 'Toi' : c.display_name}</span>
-            <span className="comment-text">{c.text}</span>
+      <header className="comments-head">
+        💬 {comments.length === 0 ? 'Sois le premier à commenter' : `${comments.length} commentaire${comments.length > 1 ? 's' : ''}`}
+      </header>
+
+      <div className="comments-list">
+        {comments.map((c) => (
+          <div className="comment" key={c.id}>
+            <button
+              className="comment-avatar"
+              onClick={() => onOpenUser?.(c.username)}
+              aria-label={`Profil de ${c.display_name}`}
+            >
+              {c.emoji}
+            </button>
+            <div className="comment-body">
+              <span className="comment-meta">
+                <button className="comment-author" onClick={() => onOpenUser?.(c.username)}>
+                  {c.is_me ? 'Toi' : c.display_name}
+                </button>
+                <span className="comment-time">{timeAgo(c.created_at)}</span>
+              </span>
+              <span className="comment-text">{c.text}</span>
+            </div>
+            {Boolean(c.is_me) && (
+              <button className="comment-del" onClick={() => handleDelete(c.id)} aria-label="Supprimer">×</button>
+            )}
           </div>
-          {Boolean(c.is_me) && (
-            <button className="comment-del" onClick={() => handleDelete(c.id)}>×</button>
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
+
       <form className="comment-form" onSubmit={handleSend}>
         <input
           placeholder="Ajoute un commentaire…"

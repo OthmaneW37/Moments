@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, CATEGORY_META } from '../api'
 import MomentCard from './MomentCard'
 import MomentViewer from './MomentViewer'
+import UserSheet from './UserSheet'
+import ContextSheet from './ContextSheet'
 
 export default function Discover() {
   const [data, setData] = useState(null)
   const [cat, setCat] = useState(null) // null = tout
   const [viewer, setViewer] = useState(null) // { list, index }
+  const [userSheet, setUserSheet] = useState(null)
+  const [ctxSheet, setCtxSheet] = useState(null)
 
   useEffect(() => {
     api.discover().then(setData).catch(() => setData({ city: '', moments: [] }))
@@ -72,6 +76,8 @@ export default function Discover() {
             key={m.id}
             moment={m}
             onOpen={(mm) => setViewer({ list: shown, index: shown.indexOf(mm) })}
+            onOpenUser={(u) => { setCtxSheet(null); setUserSheet(u) }}
+            onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
           />
         ))
       )}
@@ -81,6 +87,20 @@ export default function Discover() {
           moments={viewer.list}
           index={viewer.index}
           onClose={() => setViewer(null)}
+        />
+      )}
+      {userSheet && (
+        <UserSheet
+          username={userSheet}
+          onClose={() => setUserSheet(null)}
+          onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
+        />
+      )}
+      {ctxSheet && (
+        <ContextSheet
+          context={ctxSheet}
+          onClose={() => setCtxSheet(null)}
+          onOpenUser={(u) => { setCtxSheet(null); setUserSheet(u) }}
         />
       )}
     </div>

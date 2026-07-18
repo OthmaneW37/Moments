@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
+import { useEffect, useRef, useState } from 'react'
+import { api, CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
 import { useReaction } from '../useReaction'
 import Comments from './Comments'
 import ContextCard from './ContextCard'
@@ -20,10 +20,79 @@ function orderMoments(moments) {
   })
 }
 
-function Slide({ moment }) {
+// Empile les emojis de réaction : le plus mis devant, les autres derrière.
+function ReactionStack({ reactions, total, myReaction, onClick }) {
+  const ordered = Object.entries(reactions).sort((a, b) => b[1] - a[1]).map(([e]) => e)
+  return (
+    <button className={`ifeed-act ${myReaction ? 'on' : ''}`} onClick={onClick}>
+      {ordered.length === 0 ? (
+        <span>🤍</span>
+      ) : (
+        <span className="react-stack">
+          {ordered.slice(0, 3).map((e, i) => (
+            <em key={e} className="react-stack-emoji" style={{ zIndex: 10 - i }}>{e}</em>
+          ))}
+        </span>
+      )}
+      <small>{total > 0 ? total : ''}</small>
+    </button>
+  )
+}
+
+// Feuille "qui a réagi avec quoi", groupée par réaction la plus faite d'abord.
+function ReactionSheet({ moment, myReaction, onReact, onOpenUser }) {
+  const [reactors, setReactors] = useState(null)
+
+  useEffect(() => {
+    api.eventReactions(moment.id).then(setReactors).catch(() => setReactors([]))
+  }, [moment.id])
+
+  const groups = []
+  if (reactors) {
+    const byEmoji = new Map()
+    for (const r of reactors) {
+      if (!byEmoji.has(r.reaction)) byEmoji.set(r.reaction, [])
+      byEmoji.get(r.reaction).push(r)
+    }
+    groups.push(...[...byEmoji.entries()].sort((a, b) => b[1].length - a[1].length))
+  }
+
+  return (
+    <div className="ifeed-sheet react-sheet2">
+      {reactors === null ? (
+        <p className="muted center">…</p>
+      ) : groups.length > 0 && (
+        <div className="react-groups">
+          {groups.map(([emoji, people]) => (
+            <div className="react-group" key={emoji}>
+              <span className="react-group-emoji">{emoji}</span>
+              <span className="react-group-count">×{people.length}</span>
+              <span className="react-group-people">
+                {people.map((p, i) => (
+                  <button key={p.username} className="linklike" onClick={() => onOpenUser?.(p.username)}>
+                    {p.emoji} {p.is_me ? 'Toi' : p.display_name}{i < people.length - 1 ? ' · ' : ''}
+                  </button>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="react-picker-row">
+        {REACTION_EMOJIS.map((e) => (
+          <button key={e} className={myReaction === e ? 'chosen' : ''} onClick={() => onReact(e)}>
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Slide({ moment, onOpenUser, onOpenContext }) {
   const meta = CATEGORY_META[moment.category] ?? CATEGORY_META.autre
   const { author } = moment
-  const { myReaction, total, react, likeOnDoubleTap } = useReaction(moment)
+  const { reactions, myReaction, total, react, likeOnDoubleTap } = useReaction(moment)
   const [burst, setBurst] = useState(0)
   const [sheet, setSheet] = useState(null) // null | 'react' | 'comments'
   const [commentCount, setCommentCount] = useState(moment.comments || 0)
@@ -59,13 +128,12 @@ function Slide({ moment }) {
       {/* Rail d'actions à droite, façon TikTok */}
       <div className="ifeed-rail">
         <span className="ifeed-cat">{meta.emoji}</span>
-        <button
-          className={`ifeed-act ${myReaction ? 'on' : ''}`}
+        <ReactionStack
+          reactions={reactions}
+          total={total}
+          myReaction={myReaction}
           onClick={() => setSheet(sheet === 'react' ? null : 'react')}
-        >
-          <span>{myReaction || '🤍'}</span>
-          <small>{total > 0 ? total : ''}</small>
-        </button>
+        />
         <button
           className={`ifeed-act ${sheet === 'comments' ? 'on' : ''}`}
           onClick={() => setSheet(sheet === 'comments' ? null : 'comments')}
@@ -79,13 +147,21 @@ function Slide({ moment }) {
       {/* Légende en bas à gauche */}
       <div className="ifeed-caption">
         <div className="ifeed-who">
-          <span className="ifeed-avatar">{author.emoji}</span>
-          <strong>{author.is_me ? 'Toi' : author.display_name}</strong>
-          <span className="ifeed-handle">@{author.username}{author.city ? ` · ${author.city}` : ''}</span>
+          <button className="ifeed-avatar" onClick={() => onOpenUser?.(author.username)}>
+            {author.emoji}
+          </button>
+          <button className="ifeed-name" onClick={() => onOpenUser?.(author.username)}>
+            <strong>{author.is_me ? 'Toi' : author.display_name}</strong>
+            <span className="ifeed-handle">@{author.username}{author.city ? ` · ${author.city}` : ''}</span>
+          </button>
         </div>
         <h2 className="ifeed-title">{moment.title}</h2>
         {moment.notes && <p className="ifeed-notes">{moment.notes}</p>}
-        <ContextCard context={moment.context} />
+        {moment.context?.title && (
+          <button className="ctx-card-btn" onClick={() => onOpenContext?.(moment.context)}>
+            <ContextCard context={moment.context} />
+          </button>
+        )}
         {tags.length > 0 && (
           <div className="ifeed-vibes">
             {tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}
@@ -94,32 +170,34 @@ function Slide({ moment }) {
       </div>
 
       {sheet === 'react' && (
-        <div className="ifeed-sheet react-sheet">
-          {REACTION_EMOJIS.map((e) => (
-            <button
-              key={e}
-              className={myReaction === e ? 'chosen' : ''}
-              onClick={() => { react(e); setSheet(null) }}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
+        <ReactionSheet
+          key={total /* recharge la liste après un changement */}
+          moment={moment}
+          myReaction={myReaction}
+          onReact={(e) => { react(e); setSheet(null) }}
+          onOpenUser={onOpenUser}
+        />
       )}
       {sheet === 'comments' && (
         <div className="ifeed-sheet comments-sheet">
-          <Comments eventId={moment.id} onCountChange={(d) => setCommentCount((n) => n + d)} />
+          <Comments
+            eventId={moment.id}
+            onCountChange={(d) => setCommentCount((n) => n + d)}
+            onOpenUser={onOpenUser}
+          />
         </div>
       )}
     </section>
   )
 }
 
-export default function ImmersiveFeed({ moments }) {
+export default function ImmersiveFeed({ moments, onOpenUser, onOpenContext }) {
   const ordered = orderMoments(moments)
   return (
     <div className="ifeed-scroller">
-      {ordered.map((m) => <Slide key={m.id} moment={m} />)}
+      {ordered.map((m) => (
+        <Slide key={m.id} moment={m} onOpenUser={onOpenUser} onOpenContext={onOpenContext} />
+      ))}
     </div>
   )
 }

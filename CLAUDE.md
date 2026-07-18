@@ -32,7 +32,7 @@ There is **no automated test suite**. Verify changes by exercising the API (e.g.
 ## Architecture
 
 ### Backend (`backend/app/`)
-- **`main.py`** — every route lives here (auth, events CRUD, photos, friends, feed, discover, reactions, comments, notifications, timeline, stats, memories, week-summary). One flat FastAPI app.
+- **`main.py`** — every route lives here (auth, events CRUD, photos, friends, feed, discover, reactions, comments, notifications, timeline, stats, memories, week-summary, recap, `/api/users/{username}` public profile, `/api/context/detail` work page). One flat FastAPI app.
 - **`db.py`** — SQLite access (`get_conn`), the full schema in `init_db()`, and shared helpers: `row_to_event`, `photos_for_events`, `friend_ids`, `notify`.
 - **`auth.py`** — password hashing (PBKDF2 via stdlib, no external hash lib) and JWT. `current_user` is the FastAPI dependency that guards every protected route; the signing key auto-generates into `backend/secret.key`.
 - **`vision.py`** — local photo auto-tagging. `analyze_photo(path, category)` computes brightness / colour-temperature / saturation from the pixels (Pillow) and returns ambiance tags plus a category tag. **This is a local heuristic, not a real vision model** — the interface is intentionally shaped so a real model (e.g. HuggingFace) can replace the implementation without touching callers.

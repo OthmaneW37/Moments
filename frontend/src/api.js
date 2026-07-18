@@ -97,6 +97,11 @@ export const api = {
   // --- Fiche contextuelle (film/série, livre, match, lieu) ---
   contextSearch: (category, q) =>
     request(`/api/context/search?category=${encodeURIComponent(category)}&q=${encodeURIComponent(q)}`),
+  contextDetail: (kind, title) =>
+    request(`/api/context/detail?kind=${encodeURIComponent(kind)}&title=${encodeURIComponent(title)}`),
+
+  // --- Profils publics ---
+  userProfile: (username) => request(`/api/users/${encodeURIComponent(username)}`),
 }
 
 // Catégories qui proposent une fiche contextuelle + libellé de recherche
