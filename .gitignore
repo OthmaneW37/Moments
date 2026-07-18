@@ -1,0 +1,17 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Base de données locale + photos uploadées + secret JWT
+backend/moments.db
+backend/uploads/
+backend/secret.key
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Divers
+.DS_Store
+*.log
