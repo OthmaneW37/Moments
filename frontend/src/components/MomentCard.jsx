@@ -3,6 +3,7 @@ import { api, CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
 import { useReaction } from '../useReaction'
 import Comments from './Comments'
 import ContextCard from './ContextCard'
+import Icon from './Icon'
 
 function feedDateLabel(iso) {
   const today = toISO(new Date())
@@ -117,7 +118,14 @@ export default function MomentCard({ moment, onOpen, onOpenUser, onOpenContext }
             className={`like-btn ${myReaction ? 'liked' : ''}`}
             onClick={togglePicker}
           >
-            {myReaction || (topEmojis.length ? topEmojis.join('') : '🤍')} {total > 0 ? total : ''}
+            {myReaction ? (
+              <Icon emoji={myReaction} size="20" />
+            ) : topEmojis.length ? (
+              topEmojis.map((e) => <Icon key={e} emoji={e} size="18" />)
+            ) : (
+              <Icon emoji="🤍" size="20" />
+            )}
+            {total > 0 ? total : ''}
           </button>
           {pickerOpen && (
             <div className="react-pop">
@@ -131,7 +139,7 @@ export default function MomentCard({ moment, onOpen, onOpenUser, onOpenContext }
               <div className="react-picker">
                 {REACTION_EMOJIS.map((e) => (
                   <button key={e} className={myReaction === e ? 'chosen' : ''} onClick={() => handleReact(e)}>
-                    {e}
+                    <Icon emoji={e} size="28" />
                   </button>
                 ))}
               </div>

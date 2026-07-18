@@ -3,6 +3,7 @@ import { api, CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
 import { useReaction } from '../useReaction'
 import Comments from './Comments'
 import ContextCard from './ContextCard'
+import Icon from './Icon'
 
 function dayLabel(iso) {
   const today = toISO(new Date())
@@ -20,17 +21,17 @@ function orderMoments(moments) {
   })
 }
 
-// Empile les emojis de réaction : le plus mis devant, les autres derrière.
+// Empile les icônes de réaction : la plus mise devant, les autres derrière.
 function ReactionStack({ reactions, total, myReaction, onClick }) {
   const ordered = Object.entries(reactions).sort((a, b) => b[1] - a[1]).map(([e]) => e)
   return (
     <button className={`ifeed-act ${myReaction ? 'on' : ''}`} onClick={onClick}>
       {ordered.length === 0 ? (
-        <span>🤍</span>
+        <Icon emoji="🤍" size="24" />
       ) : (
         <span className="react-stack">
           {ordered.slice(0, 3).map((e, i) => (
-            <em key={e} className="react-stack-emoji" style={{ zIndex: 10 - i }}>{e}</em>
+            <Icon key={e} emoji={e} size={i === 0 ? '28' : i === 1 ? '20' : '16'} className="react-stack-emoji" />
           ))}
         </span>
       )}
@@ -65,7 +66,7 @@ function ReactionSheet({ moment, myReaction, onReact, onOpenUser }) {
         <div className="react-groups">
           {groups.map(([emoji, people]) => (
             <div className="react-group" key={emoji}>
-              <span className="react-group-emoji">{emoji}</span>
+              <Icon emoji={emoji} size="24" className="react-group-emoji" />
               <span className="react-group-count">×{people.length}</span>
               <span className="react-group-people">
                 {people.map((p, i) => (
@@ -81,7 +82,7 @@ function ReactionSheet({ moment, myReaction, onReact, onOpenUser }) {
       <div className="react-picker-row">
         {REACTION_EMOJIS.map((e) => (
           <button key={e} className={myReaction === e ? 'chosen' : ''} onClick={() => onReact(e)}>
-            {e}
+            <Icon emoji={e} size="36" />
           </button>
         ))}
       </div>
@@ -127,7 +128,7 @@ function Slide({ moment, onOpenUser, onOpenContext }) {
 
       {/* Rail d'actions à droite, façon TikTok */}
       <div className="ifeed-rail">
-        <span className="ifeed-cat">{meta.emoji}</span>
+        <Icon emoji={meta.emoji} size="24" className="ifeed-cat" />
         <ReactionStack
           reactions={reactions}
           total={total}
