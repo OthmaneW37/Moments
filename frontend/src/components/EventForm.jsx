@@ -91,7 +91,9 @@ function ContextPicker({ category, context, onChange }) {
               type="button"
               key={i}
               className="ctx-result"
-              onClick={() => onChange({ ...r, my_rating: null })}
+              /* pointerdown : le tap est capté AVANT que le clavier mobile se ferme
+                 et fasse bouger la liste (sinon le clic se perd) */
+              onPointerDown={(e) => { e.preventDefault(); onChange({ ...r, my_rating: null }) }}
             >
               {r.image
                 ? <img src={r.image} alt="" />
@@ -168,14 +170,15 @@ export default function EventForm({ date, initial, onSave, onCancel }) {
         </label>
 
         {CONTEXT_SEARCH[form.category] && (
-          <label>
-            Contexte {form.context ? '✓' : '(optionnel)'}
+          /* pas un <label> : un label détourne les taps de la liste vers l'input */
+          <div className="field">
+            <span className="field-title">Contexte {form.context ? '✓' : '(optionnel)'}</span>
             <ContextPicker
               category={form.category}
               context={form.context}
               onChange={(ctx) => setForm((f) => ({ ...f, context: ctx }))}
             />
-          </label>
+          </div>
         )}
 
         <div className="time-row">
