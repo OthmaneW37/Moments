@@ -3,6 +3,7 @@
 
 const ICON_MAP = {
   '❤️': { name: 'love', label: 'Love' },
+  '🤍': { name: 'heart-empty', label: 'React' },
   '🔥': { name: 'flame', label: 'Flame' },
   '😂': { name: 'laugh', label: 'Laugh' },
   '😍': { name: 'Love-struck', label: 'Love-struck' },
