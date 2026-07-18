@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .auth import create_token, current_user, hash_password, verify_password
+from .context import search_context
 from .db import friend_ids, get_conn, init_db, notify, photos_for_events, row_to_event
 from .vision import analyze_photo
 
@@ -26,7 +27,10 @@ UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-CATEGORIES = ["cinema", "cafe", "sport", "video", "sortie", "etude", "repas", "autre"]
+CATEGORIES = ["cinema", "livre", "cafe", "sport", "video", "sortie", "etude", "repas", "autre"]
+
+# Clés autorisées dans la fiche contextuelle d'un moment
+CONTEXT_KEYS = {"kind", "title", "subtitle", "image", "rating", "source", "my_rating"}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_.]{3,20}$")
 
@@ -57,6 +61,7 @@ class EventIn(BaseModel):
     end_time: str | None = None
     notes: str = ""
     visibility: str = "friends"  # friends | public
+    context: dict | None = None  # fiche œuvre/match/lieu + note perso
 
 
 class SignupIn(BaseModel):
@@ -195,6 +200,28 @@ def events_range(start: str, end: str, user: dict = Depends(current_user)):
         return {r["date"]: {"events": r["events"], "photos": r["photos"]} for r in rows}
 
 
+def _clean_context(context: dict | None) -> str:
+    """Ne garde que les clés connues de la fiche ; '' si pas de fiche."""
+    if not context or not isinstance(context, dict) or not context.get("title"):
+        return ""
+    clean = {k: v for k, v in context.items() if k in CONTEXT_KEYS and v is not None}
+    my = clean.get("my_rating")
+    if my is not None:
+        try:
+            clean["my_rating"] = max(1, min(5, int(my)))
+        except (TypeError, ValueError):
+            clean.pop("my_rating", None)
+    return json.dumps(clean, ensure_ascii=False)
+
+
+@app.get("/api/context/search")
+def context_search(category: str, q: str, user: dict = Depends(current_user)):
+    """Fiches candidates (film/série, livre, match, lieu) pour enrichir un moment."""
+    if len(q.strip()) < 2:
+        return []
+    return search_context(category, q, city=user.get("city") or "")
+
+
 @app.post("/api/events", status_code=201)
 def create_event(body: EventIn, user: dict = Depends(current_user)):
     if not DATE_RE.match(body.date):
@@ -202,12 +229,13 @@ def create_event(body: EventIn, user: dict = Depends(current_user)):
     if body.category not in CATEGORIES:
         raise HTTPException(400, f"category must be one of {CATEGORIES}")
     visibility = body.visibility if body.visibility in VISIBILITIES else "friends"
+    context_json = _clean_context(body.context)
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO events (title, category, date, start_time, end_time, notes, user_id, visibility) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO events (title, category, date, start_time, end_time, notes, user_id, visibility, context) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (body.title, body.category, body.date, body.start_time, body.end_time,
-             body.notes, user["id"], visibility),
+             body.notes, user["id"], visibility, context_json),
         )
         row = conn.execute("SELECT * FROM events WHERE id = ?", (cur.lastrowid,)).fetchone()
         return row_to_event(row)
@@ -218,12 +246,13 @@ def update_event(event_id: int, body: EventIn, user: dict = Depends(current_user
     if body.category not in CATEGORIES:
         raise HTTPException(400, f"category must be one of {CATEGORIES}")
     visibility = body.visibility if body.visibility in VISIBILITIES else "friends"
+    context_json = _clean_context(body.context)
     with get_conn() as conn:
         cur = conn.execute(
-            "UPDATE events SET title=?, category=?, date=?, start_time=?, end_time=?, notes=?, visibility=? "
+            "UPDATE events SET title=?, category=?, date=?, start_time=?, end_time=?, notes=?, visibility=?, context=? "
             "WHERE id=? AND user_id=?",
             (body.title, body.category, body.date, body.start_time, body.end_time,
-             body.notes, visibility, event_id, user["id"]),
+             body.notes, visibility, context_json, event_id, user["id"]),
         )
         if cur.rowcount == 0:
             raise HTTPException(404, "event not found")

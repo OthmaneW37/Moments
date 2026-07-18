@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
 import { useReaction } from '../useReaction'
 import Comments from './Comments'
+import ContextCard from './ContextCard'
 
 function dateLabel(iso) {
   const today = toISO(new Date())
@@ -61,6 +62,7 @@ function Slide({ moment }) {
         )}
         <h2 className="viewer-title">{moment.title}</h2>
         {moment.notes && <p className="viewer-notes">{moment.notes}</p>}
+        <ContextCard context={moment.context} />
       </div>
 
       <div className="viewer-actions">

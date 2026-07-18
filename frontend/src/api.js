@@ -93,6 +93,22 @@ export const api = {
   // --- Perso ---
   timeline: () => request('/api/timeline'),
   stats: () => request('/api/stats'),
+
+  // --- Fiche contextuelle (film/série, livre, match, lieu) ---
+  contextSearch: (category, q) =>
+    request(`/api/context/search?category=${encodeURIComponent(category)}&q=${encodeURIComponent(q)}`),
+}
+
+// Catégories qui proposent une fiche contextuelle + libellé de recherche
+export const CONTEXT_SEARCH = {
+  cinema: 'Quel film / série ? 🎬',
+  video: 'Quelle série / vidéo ? 📺',
+  livre: 'Quel livre ? 📖',
+  etude: 'Quel livre / manuel ? 📚',
+  sport: 'Quel match ? (ex : Real Madrid vs Barcelona)',
+  cafe: 'Quel café ? ☕',
+  repas: 'Quel resto ? 🍽️',
+  sortie: 'Quel lieu ? 🌆',
 }
 
 export const REACTION_EMOJIS = ['❤️', '🔥', '😂', '😍', '😮', '👏']
@@ -102,6 +118,7 @@ export const REACTION_EMOJIS = ['❤️', '🔥', '😂', '😍', '😮', '👏'
 // Tons profonds et feutrés, lisibles sur fond papier clair
 export const CATEGORY_META = {
   cinema: { label: 'Cinéma', emoji: '🎬', color: '#7b3b8f' },
+  livre: { label: 'Livre', emoji: '📖', color: '#7d3650' },
   cafe: { label: 'Café', emoji: '☕', color: '#8a5a17' },
   sport: { label: 'Sport', emoji: '🏟️', color: '#2f6b3c' },
   video: { label: 'Vidéo / YouTube', emoji: '📺', color: '#9c3535' },

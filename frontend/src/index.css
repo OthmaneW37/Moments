@@ -779,6 +779,73 @@ button { font-family: inherit; color: inherit; }
 .react-picker button:hover { transform: scale(1.25); }
 .react-picker button.chosen { background: var(--accent-tint); }
 
+/* ---- Fiche contextuelle (œuvre / match / lieu + notes) ---- */
+/* Dans le formulaire */
+.ctx-block { display: flex; flex-direction: column; gap: 8px; }
+.ctx-hint { margin: 0; font-size: 0.78rem; }
+.ctx-results {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 10px; padding: 4px;
+  background: var(--surface);
+}
+.ctx-result {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  background: none; border: 0; border-radius: 8px; padding: 6px 8px; cursor: pointer;
+}
+.ctx-result:hover { background: var(--surface-2); }
+.ctx-result img, .ctx-thumb-fallback {
+  width: 38px; height: 52px; object-fit: cover; border-radius: 6px; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.ctx-thumb-fallback { display: flex; align-items: center; justify-content: center; font-size: 1.2rem; background: var(--surface-2); }
+.ctx-result-info { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
+.ctx-result-info strong { font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-result-info .muted { font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-result-note { flex-shrink: 0; font-size: 0.78rem; font-weight: 700; color: var(--accent); }
+.ctx-selected {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--accent); background: var(--accent-tint);
+  border-radius: 12px; padding: 8px 10px;
+}
+.ctx-selected img { width: 42px; height: 58px; object-fit: cover; border-radius: 6px; }
+.ctx-selected-info { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.ctx-selected-info strong { font-size: 0.9rem; }
+.ctx-selected-info .muted { font-size: 0.74rem; }
+.ctx-community { font-size: 0.72rem; color: var(--accent-deep); font-weight: 600; }
+.ctx-remove {
+  background: none; border: 0; color: var(--muted); font-size: 1.2rem; cursor: pointer;
+  padding: 4px 6px; flex-shrink: 0;
+}
+.ctx-rate { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: var(--muted); }
+.stars { display: flex; gap: 2px; }
+.star {
+  background: none; border: 0; cursor: pointer; font-size: 1.5rem; line-height: 1;
+  color: var(--border-strong); padding: 2px;
+  transition: transform 0.1s;
+}
+.star:hover { transform: scale(1.2); }
+.star.on { color: var(--accent); }
+
+/* Sur la photo (feed / découverte) : carte verre dépoli */
+.ctx-card {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(0,0,0,0.42); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 12px; padding: 8px 11px;
+  max-width: 100%;
+}
+.ctx-card img {
+  width: 40px; height: 56px; object-fit: cover; border-radius: 6px; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.ctx-card-info { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; color: #fff; }
+.ctx-card-info strong { font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-card-info > span { font-size: 0.72rem; color: rgba(255,255,255,0.82); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-card-notes { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
+.ctx-card-mine { color: #ffb347; font-size: 0.88rem; letter-spacing: 0.05em; }
+.ctx-card-comm { font-size: 0.7rem; color: rgba(255,255,255,0.75); }
+
 /* ---- Commentaires ---- */
 .comments { border-top: 1px solid var(--border); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
 .comment { display: flex; align-items: flex-start; gap: 8px; }

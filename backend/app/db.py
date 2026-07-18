@@ -105,10 +105,19 @@ def init_db() -> None:
         # Phase 3 : tags auto générés par analyse d'image (JSON)
         if "tags" not in cols("photos"):
             conn.execute("ALTER TABLE photos ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
+        # Phase 4 : fiche contextuelle (film/livre/match/lieu + notes) en JSON
+        if "context" not in cols("events"):
+            conn.execute("ALTER TABLE events ADD COLUMN context TEXT NOT NULL DEFAULT ''")
 
 
 def row_to_event(row: sqlite3.Row, photos: list[dict] | None = None) -> dict:
     keys = row.keys()
+    context = None
+    if "context" in keys and row["context"]:
+        try:
+            context = json.loads(row["context"])
+        except (TypeError, ValueError):
+            context = None
     return {
         "id": row["id"],
         "title": row["title"],
@@ -118,6 +127,7 @@ def row_to_event(row: sqlite3.Row, photos: list[dict] | None = None) -> dict:
         "end_time": row["end_time"],
         "notes": row["notes"],
         "visibility": row["visibility"] if "visibility" in keys else "friends",
+        "context": context,
         "created_at": row["created_at"],
         "photos": photos or [],
     }

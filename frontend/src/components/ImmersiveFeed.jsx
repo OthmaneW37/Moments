@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
 import { useReaction } from '../useReaction'
 import Comments from './Comments'
+import ContextCard from './ContextCard'
 
 function dayLabel(iso) {
   const today = toISO(new Date())
@@ -84,6 +85,7 @@ function Slide({ moment }) {
         </div>
         <h2 className="ifeed-title">{moment.title}</h2>
         {moment.notes && <p className="ifeed-notes">{moment.notes}</p>}
+        <ContextCard context={moment.context} />
         {tags.length > 0 && (
           <div className="ifeed-vibes">
             {tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}

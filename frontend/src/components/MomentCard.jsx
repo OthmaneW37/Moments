@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { api, CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
 import { useReaction } from '../useReaction'
 import Comments from './Comments'
+import ContextCard from './ContextCard'
 
 function feedDateLabel(iso) {
   const today = toISO(new Date())
@@ -94,6 +95,7 @@ export default function MomentCard({ moment, onOpen }) {
           )}
           <h3>{moment.title}</h3>
           {moment.notes && <p>{moment.notes}</p>}
+          <ContextCard context={moment.context} />
         </div>
       </div>
 
