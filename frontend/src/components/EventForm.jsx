@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, CATEGORY_META, CONTEXT_SEARCH } from '../api'
 
-const EMPTY = { title: '', category: 'autre', start_time: '', end_time: '', notes: '', visibility: 'friends', context: null }
+const EMPTY = { title: '', category: 'autre', visibility: 'friends', context: null }
 
-function Stars({ value, onChange }) {
+export function Stars({ value, onChange }) {
   return (
     <div className="stars" role="radiogroup" aria-label="Ta note">
       {[1, 2, 3, 4, 5].map((n) => (
@@ -21,7 +21,7 @@ function Stars({ value, onChange }) {
   )
 }
 
-function ContextPicker({ category, context, onChange }) {
+export function ContextPicker({ category, context, onChange }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState(null)
   const [searching, setSearching] = useState(false)
@@ -126,9 +126,9 @@ export default function EventForm({ date, initial, onSave, onCancel }) {
         title: form.title.trim(),
         category: form.category,
         date: initial?.date ?? date,
-        start_time: form.start_time || null,
-        end_time: form.end_time || null,
-        notes: form.notes,
+        start_time: initial?.start_time ?? null,
+        end_time: initial?.end_time ?? null,
+        notes: initial?.notes ?? '',
         visibility: form.visibility || 'friends',
         context: form.context,
       })
@@ -180,27 +180,6 @@ export default function EventForm({ date, initial, onSave, onCancel }) {
             />
           </div>
         )}
-
-        <div className="time-row">
-          <label>
-            Début
-            <input type="time" value={form.start_time ?? ''} onChange={set('start_time')} />
-          </label>
-          <label>
-            Fin
-            <input type="time" value={form.end_time ?? ''} onChange={set('end_time')} />
-          </label>
-        </div>
-
-        <label>
-          Notes
-          <textarea
-            rows={2}
-            placeholder="Détails, lieu, avec qui..."
-            value={form.notes ?? ''}
-            onChange={set('notes')}
-          />
-        </label>
 
         <label>
           Qui peut voir ce moment ?

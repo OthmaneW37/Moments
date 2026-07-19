@@ -4,6 +4,7 @@ import AuthScreen from './components/AuthScreen'
 import WeekStrip from './components/WeekStrip'
 import EventCard from './components/EventCard'
 import EventForm from './components/EventForm'
+import NewMoment from './components/NewMoment'
 import Feed from './components/Feed'
 import Discover from './components/Discover'
 import Notifications from './components/Notifications'
@@ -27,6 +28,8 @@ export default function App() {
   const [weekSummary, setWeekSummary] = useState({})
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [capturing, setCapturing] = useState(false) // écran capture-first du +
+  const [feedNonce, setFeedNonce] = useState(0)     // force le refetch du feed après un post
   const [notifs, setNotifs] = useState(null)
   const [dmUnread, setDmUnread] = useState(0)
   const [dmWith, setDmWith] = useState(null) // ouvrir directement une conv
@@ -78,10 +81,16 @@ export default function App() {
   }
 
   function openNewMoment() {
-    setView('day')
-    setDayTab('day')
     setEditing(null)
-    setFormOpen(true)
+    setCapturing(true)
+  }
+
+  async function handleMomentPosted() {
+    setCapturing(false)
+    await refresh()
+    setDate(toISO(new Date()))
+    setFeedNonce((n) => n + 1)
+    setView('feed')
   }
 
   // Page publique de partage — court-circuite l'auth
@@ -142,7 +151,7 @@ export default function App() {
       </header>
 
       <div className={`screen ${view === 'feed' ? 'screen--immersive' : ''}`}>
-        {view === 'feed' && <Feed key={date} onMessage={openMessages} />}
+        {view === 'feed' && <Feed key={`${date}-${feedNonce}`} onMessage={openMessages} />}
 
         {view === 'discover' && <Discover onMessage={openMessages} />}
 
@@ -269,6 +278,10 @@ export default function App() {
           onOpenUser={setUserSheet}
           onMessage={(u) => { setUserSheet(null); openMessages(u) }}
         />
+      )}
+
+      {capturing && (
+        <NewMoment onDone={handleMomentPosted} onCancel={() => setCapturing(false)} />
       )}
     </div>
   )
