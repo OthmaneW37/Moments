@@ -4,6 +4,8 @@ import { useReaction } from '../useReaction'
 import Comments from './Comments'
 import ContextCard from './ContextCard'
 import Icon from './Icon'
+import Media from './Media'
+import ShareButton from './ShareButton'
 
 function dayLabel(iso) {
   const today = toISO(new Date())
@@ -101,6 +103,26 @@ function Slide({ moment, onOpenUser, onOpenContext }) {
 
   const tags = [...new Set((moment.photos || []).flatMap((p) => p.tags || []))]
   const multi = moment.photos.length > 1
+  const media = moment.photos[0]
+  const sectionRef = useRef(null)
+
+  // Vidéos : lecture auto quand la slide est visible, pause sinon
+  useEffect(() => {
+    if (media?.media_type !== 'video') return
+    const el = sectionRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        const v = el.querySelector('video')
+        if (!v) return
+        if (entry.isIntersecting) v.play().catch(() => {})
+        else v.pause()
+      },
+      { threshold: 0.6 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [media])
 
   function handleTap() {
     const now = Date.now()
@@ -110,13 +132,13 @@ function Slide({ moment, onOpenUser, onOpenContext }) {
       setBurst((b) => b + 1)
     } else {
       lastTap.current = now
-      if (sheet) setSheet(null) // un tap sur la photo referme la feuille ouverte
+      if (sheet) setSheet(null) // un tap sur le média referme la feuille ouverte
     }
   }
 
   return (
-    <section className="ifeed-slide" style={{ '--cat': meta.color }}>
-      <img className="ifeed-photo" src={moment.photos[0].url} alt={moment.title} onClick={handleTap} />
+    <section className="ifeed-slide" style={{ '--cat': meta.color }} ref={sectionRef}>
+      <Media media={media} className="ifeed-photo" alt={moment.title} onClick={handleTap} />
       <div className="ifeed-veil" aria-hidden="true" />
       {burst > 0 && <span key={burst} className="heart-burst big" aria-hidden="true">❤️</span>}
 
@@ -142,6 +164,7 @@ function Slide({ moment, onOpenUser, onOpenContext }) {
           <Icon emoji="💬" size="26" />
           <small>{commentCount > 0 ? commentCount : ''}</small>
         </button>
+        {author.is_me && <ShareButton eventId={moment.id} className="ifeed-act" />}
         {multi && <span className="ifeed-multi">▦ {moment.photos.length}</span>}
       </div>
 

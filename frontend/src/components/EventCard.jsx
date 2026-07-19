@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { api, CATEGORY_META } from '../api'
+import Media from './Media'
 
 export default function EventCard({ event, onChanged, onEdit }) {
   const fileRef = useRef(null)
@@ -23,7 +24,7 @@ export default function EventCard({ event, onChanged, onEdit }) {
   }
 
   async function handleDeletePhoto(photoId) {
-    if (!confirm('Supprimer cette photo ?')) return
+    if (!confirm('Supprimer ce média ?')) return
     await api.deletePhoto(photoId)
     onChanged()
   }
@@ -59,8 +60,8 @@ export default function EventCard({ event, onChanged, onEdit }) {
         <div className="photo-row">
           {event.photos.map((p) => (
             <div className="thumb" key={p.id}>
-              <img src={p.url} alt="" loading="lazy" />
-              <button className="thumb-del" title="Supprimer la photo"
+              <Media media={p} alt="" />
+              <button className="thumb-del" title="Supprimer le média"
                       onClick={() => handleDeletePhoto(p.id)}>×</button>
             </div>
           ))}
@@ -70,14 +71,14 @@ export default function EventCard({ event, onChanged, onEdit }) {
         </div>
       ) : (
         <button className="capture-nudge" onClick={() => fileRef.current?.click()} disabled={uploading}>
-          {uploading ? 'Envoi en cours…' : '📸 Capture ce moment — ajoute une photo souvenir'}
+          {uploading ? 'Envoi en cours…' : '📸 Capture ce moment — photo ou vidéo souvenir'}
         </button>
       )}
 
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
         hidden
         onChange={handleFiles}

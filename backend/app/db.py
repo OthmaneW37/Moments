@@ -122,6 +122,47 @@ def init_db() -> None:
             FROM friendships WHERE status = 'accepted'
             """
         )
+        # Phase 6 : photo OU vidéo
+        if "media_type" not in cols("photos"):
+            conn.execute("ALTER TABLE photos ADD COLUMN media_type TEXT NOT NULL DEFAULT 'photo'")
+        # Phase 6 : lien de partage public d'un moment (token opaque)
+        if "share_token" not in cols("events"):
+            conn.execute("ALTER TABLE events ADD COLUMN share_token TEXT")
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_events_share ON events(share_token)")
+
+        # Phase 6 : discussion sur une fiche œuvre (indépendante des moments)
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS work_comments (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind       TEXT NOT NULL,          -- show | book | match | place ...
+                title_key  TEXT NOT NULL,          -- title en minuscules (clé de regroupement)
+                title      TEXT NOT NULL,          -- title affiché
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                text       TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_workc ON work_comments(kind, title_key);
+
+            CREATE TABLE IF NOT EXISTS conversations (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_a     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                user_b     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TEXT DEFAULT (datetime('now')),
+                UNIQUE(user_a, user_b)
+            );
+
+            CREATE TABLE IF NOT EXISTS messages (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                conv_id    INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+                sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                text       TEXT NOT NULL,
+                read       INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conv_id, id);
+            """
+        )
 
 
 def row_to_event(row: sqlite3.Row, photos: list[dict] | None = None) -> dict:
@@ -153,7 +194,7 @@ def photos_for_events(conn: sqlite3.Connection, event_ids: list[int]) -> dict[in
         return {}
     placeholders = ",".join("?" * len(event_ids))
     rows = conn.execute(
-        f"SELECT id, event_id, filename, uploaded_at, tags FROM photos "
+        f"SELECT id, event_id, filename, uploaded_at, tags, media_type FROM photos "
         f"WHERE event_id IN ({placeholders}) ORDER BY uploaded_at",
         event_ids,
     ).fetchall()
@@ -163,12 +204,14 @@ def photos_for_events(conn: sqlite3.Connection, event_ids: list[int]) -> dict[in
             tags = json.loads(r["tags"]) if r["tags"] else []
         except (json.JSONDecodeError, TypeError):
             tags = []
+        keys = r.keys()
         out.setdefault(r["event_id"], []).append(
             {
                 "id": r["id"],
                 "url": f"/uploads/{r['filename']}",
                 "uploaded_at": r["uploaded_at"],
                 "tags": tags,
+                "media_type": r["media_type"] if "media_type" in keys else "photo",
             }
         )
     return out

@@ -9,6 +9,7 @@ const NOTIF_TEXT = {
   friend_accept: () => `a accepté ta demande d'ami 🤝`,
   like: (n) => `a liké ton moment${n.event_title ? ` « ${n.event_title} »` : ''} ❤️`,
   comment: (n) => `a commenté ton moment${n.event_title ? ` « ${n.event_title} »` : ''} 💬`,
+  message: () => `t'a envoyé un message 💌`,
 }
 
 function timeAgo(sqlDate) {
@@ -23,7 +24,7 @@ function timeAgo(sqlDate) {
   return `il y a ${days} j`
 }
 
-export default function Notifications({ data, onSeen, goProfile, goFeed }) {
+export default function Notifications({ data, onSeen, goProfile, goFeed, goMessages }) {
   // Marquer tout lu dès l'ouverture de l'écran
   useEffect(() => {
     if (data?.unread > 0) onSeen()
@@ -48,7 +49,11 @@ export default function Notifications({ data, onSeen, goProfile, goFeed }) {
         <button
           className={`notif-row ${n.read ? '' : 'unread'}`}
           key={n.id}
-          onClick={() => { if (n.type.startsWith('friend') || n.type.startsWith('follow')) goProfile(); else goFeed?.() }}
+          onClick={() => {
+            if (n.type === 'message') goMessages?.(n.actor.username)
+            else if (n.type.startsWith('friend') || n.type.startsWith('follow')) goProfile()
+            else goFeed?.()
+          }}
         >
           <span className="friend-avatar"><Icon emoji={n.actor.emoji} size="20" /></span>
           <div className="notif-body">

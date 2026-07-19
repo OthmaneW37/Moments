@@ -87,6 +87,23 @@ export const api = {
   notifications: () => request('/api/notifications'),
   markNotificationsRead: () => request('/api/notifications/read', { method: 'POST' }),
 
+  // --- Recherche de comptes ---
+  searchUsers: (q) => request(`/api/search/users?q=${encodeURIComponent(q)}`),
+
+  // --- Partage ---
+  shareEvent: (id) => jsonPost(`/api/events/${id}/share`, {}),
+  sharedEvent: (token) => request(`/api/shared/${encodeURIComponent(token)}`),
+
+  // --- Discussion sur une fiche œuvre ---
+  addWorkComment: (kind, title, text) => jsonPost('/api/work/comments', { kind, title, text }),
+  deleteWorkComment: (id) => request(`/api/work/comments/${id}`, { method: 'DELETE' }),
+
+  // --- Messagerie (DM) ---
+  conversations: () => request('/api/conversations'),
+  conversationWith: (username) => request(`/api/conversations/with/${encodeURIComponent(username)}`),
+  sendMessage: (username, text) =>
+    jsonPost(`/api/conversations/with/${encodeURIComponent(username)}`, { text }),
+
   // --- Phase IA ---
   memories: () => request('/api/memories'),
   weekSummary: () => request('/api/week-summary'),

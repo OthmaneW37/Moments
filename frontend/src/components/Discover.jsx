@@ -6,7 +6,7 @@ import UserSheet from './UserSheet'
 import ContextSheet from './ContextSheet'
 import Icon from './Icon'
 
-export default function Discover() {
+export default function Discover({ onMessage }) {
   const [data, setData] = useState(null)
   const [cat, setCat] = useState(null) // null = tout
   const [viewer, setViewer] = useState(null) // { list, index }
@@ -96,6 +96,7 @@ export default function Discover() {
           onClose={() => setUserSheet(null)}
           onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
           onOpenUser={(u) => setUserSheet(u)}
+          onMessage={onMessage}
         />
       )}
       {ctxSheet && (

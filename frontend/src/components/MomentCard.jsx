@@ -4,6 +4,7 @@ import { useReaction } from '../useReaction'
 import Comments from './Comments'
 import ContextCard from './ContextCard'
 import Icon from './Icon'
+import Media from './Media'
 
 function feedDateLabel(iso) {
   const today = toISO(new Date())
@@ -63,7 +64,7 @@ export default function MomentCard({ moment, onOpen, onOpenUser, onOpenContext }
       <div className="moment-media" onClick={handleMediaTap}>
         <div className="moment-track">
           {moment.photos.map((p) => (
-            <img key={p.id} src={p.url} alt={moment.title} loading="lazy" />
+            <Media key={p.id} media={p} alt={moment.title} />
           ))}
         </div>
 

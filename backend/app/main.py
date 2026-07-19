@@ -27,7 +27,9 @@ VISIBILITIES = {"friends", "public"}
 UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+VIDEO_EXT = {".mp4", ".webm", ".mov", ".m4v", ".ogg"}
+ALLOWED_EXT = IMAGE_EXT | VIDEO_EXT
 CATEGORIES = ["cinema", "livre", "cafe", "sport", "video", "sortie", "etude", "repas", "autre"]
 
 # Clés autorisées dans la fiche contextuelle d'un moment
@@ -98,6 +100,16 @@ class FriendRespondIn(BaseModel):
 
 class CommentIn(BaseModel):
     text: str = Field(min_length=1, max_length=500)
+
+
+class WorkCommentIn(BaseModel):
+    kind: str = Field(min_length=1, max_length=30)
+    title: str = Field(min_length=1, max_length=200)
+    text: str = Field(min_length=1, max_length=500)
+
+
+class MessageIn(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
 
 
 def public_user(row) -> dict:
@@ -295,6 +307,7 @@ def upload_photo(event_id: int, file: UploadFile = File(...), user: dict = Depen
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(400, f"file type must be one of {sorted(ALLOWED_EXT)}")
+    is_video = ext in VIDEO_EXT
     with get_conn() as conn:
         event = conn.execute(
             "SELECT id, category FROM events WHERE id = ? AND user_id = ?", (event_id, user["id"])
@@ -304,13 +317,14 @@ def upload_photo(event_id: int, file: UploadFile = File(...), user: dict = Depen
         filename = f"{event_id}_{uuid.uuid4().hex[:12]}{ext}"
         path = UPLOADS_DIR / filename
         path.write_bytes(file.file.read())
-        # Auto-tagging : analyse locale de l'image (voir vision.py)
-        tags = analyze_photo(path, event["category"])
+        # Auto-tagging seulement pour les images (analyse de pixels)
+        tags = [] if is_video else analyze_photo(path, event["category"])
+        media_type = "video" if is_video else "photo"
         cur = conn.execute(
-            "INSERT INTO photos (event_id, filename, tags) VALUES (?, ?, ?)",
-            (event_id, filename, json.dumps(tags)),
+            "INSERT INTO photos (event_id, filename, tags, media_type) VALUES (?, ?, ?, ?)",
+            (event_id, filename, json.dumps(tags), media_type),
         )
-        return {"id": cur.lastrowid, "url": f"/uploads/{filename}", "tags": tags}
+        return {"id": cur.lastrowid, "url": f"/uploads/{filename}", "tags": tags, "media_type": media_type}
 
 
 @app.delete("/api/photos/{photo_id}", status_code=204)
@@ -769,12 +783,228 @@ def context_detail(kind: str, title: str, user: dict = Depends(current_user)):
         ratings = [c.get("my_rating") for _, c in matching if c.get("my_rating")]
         fiche = dict(matching[0][1])
         fiche.pop("my_rating", None)
+        # Fil de discussion sur l'œuvre (indépendant des moments)
+        discussion = conn.execute(
+            """
+            SELECT w.id, w.text, w.created_at, u.username, u.display_name, u.emoji,
+                   (w.user_id = ?) AS is_me
+            FROM work_comments w JOIN users u ON u.id = w.user_id
+            WHERE w.kind = ? AND w.title_key = ?
+            ORDER BY w.created_at, w.id
+            """,
+            (user["id"], kind, title.lower().strip()),
+        ).fetchall()
         return {
             "context": fiche,
             "app_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
             "app_rating_count": len(ratings),
             "moments": moments,
+            "discussion": [dict(r) for r in discussion],
         }
+
+
+@app.post("/api/work/comments", status_code=201)
+def add_work_comment(body: WorkCommentIn, user: dict = Depends(current_user)):
+    """Poster un message dans le fil de discussion d'une œuvre/fiche."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO work_comments (kind, title_key, title, user_id, text) VALUES (?, ?, ?, ?, ?)",
+            (body.kind, body.title.lower().strip(), body.title.strip(), user["id"], body.text.strip()),
+        )
+        row = conn.execute(
+            """
+            SELECT w.id, w.text, w.created_at, u.username, u.display_name, u.emoji, 1 AS is_me
+            FROM work_comments w JOIN users u ON u.id = w.user_id WHERE w.id = ?
+            """,
+            (cur.lastrowid,),
+        ).fetchone()
+        return dict(row)
+
+
+@app.delete("/api/work/comments/{comment_id}", status_code=204)
+def delete_work_comment(comment_id: int, user: dict = Depends(current_user)):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM work_comments WHERE id = ? AND user_id = ?", (comment_id, user["id"])
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(404, "comment not found")
+
+
+# ---------- Recherche de comptes ----------
+
+@app.get("/api/search/users")
+def search_users(q: str, user: dict = Depends(current_user)):
+    """Recherche de comptes par pseudo ou nom (préfixe / sous-chaîne)."""
+    term = q.strip()
+    if len(term) < 1:
+        return []
+    like = f"%{term}%"
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM users
+            WHERE (username LIKE ? OR display_name LIKE ?) AND id != ?
+            ORDER BY
+                CASE WHEN username LIKE ? THEN 0 ELSE 1 END,
+                display_name
+            LIMIT 25
+            """,
+            (like, like, user["id"], f"{term}%"),
+        ).fetchall()
+        return _user_list(conn, rows, user["id"])
+
+
+# ---------- Partage public d'un moment ----------
+
+@app.post("/api/events/{event_id}/share")
+def share_event(event_id: int, user: dict = Depends(current_user)):
+    """Génère (ou renvoie) un lien de partage public en lecture seule pour MON moment."""
+    with get_conn() as conn:
+        evt = conn.execute(
+            "SELECT id, share_token FROM events WHERE id = ? AND user_id = ?",
+            (event_id, user["id"]),
+        ).fetchone()
+        if evt is None:
+            raise HTTPException(404, "event not found")
+        token = evt["share_token"]
+        if not token:
+            token = uuid.uuid4().hex[:16]
+            conn.execute("UPDATE events SET share_token = ? WHERE id = ?", (token, event_id))
+    return {"token": token, "path": f"/s/{token}"}
+
+
+@app.get("/api/shared/{token}")
+def shared_event(token: str):
+    """Vue publique d'un moment partagé — AUCUNE authentification requise."""
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT e.*, u.username, u.display_name, u.emoji, u.city
+            FROM events e JOIN users u ON u.id = e.user_id
+            WHERE e.share_token = ?
+            """,
+            (token,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "Lien invalide ou expiré")
+        photo_map = photos_for_events(conn, [row["id"]])
+        evt = row_to_event(row, photo_map.get(row["id"]))
+        evt["author"] = {
+            "username": row["username"], "display_name": row["display_name"],
+            "emoji": row["emoji"], "city": row["city"],
+        }
+        rx = {
+            r["emoji"]: r["n"]
+            for r in conn.execute(
+                "SELECT emoji, COUNT(*) AS n FROM likes WHERE event_id = ? GROUP BY emoji",
+                (row["id"],),
+            ).fetchall()
+        }
+        evt["reactions"] = rx
+        evt["reaction_total"] = sum(rx.values())
+        return evt
+
+
+# ---------- Messagerie privée (DM) ----------
+
+def _get_or_create_conv(conn, u1: int, u2: int) -> int:
+    a, b = sorted((u1, u2))
+    row = conn.execute(
+        "SELECT id FROM conversations WHERE user_a = ? AND user_b = ?", (a, b)
+    ).fetchone()
+    if row:
+        return row["id"]
+    cur = conn.execute("INSERT INTO conversations (user_a, user_b) VALUES (?, ?)", (a, b))
+    return cur.lastrowid
+
+
+@app.get("/api/conversations")
+def list_conversations(user: dict = Depends(current_user)):
+    """Liste des conversations, avec dernier message et compteur de non-lus."""
+    with get_conn() as conn:
+        convs = conn.execute(
+            """
+            SELECT c.id,
+                   CASE WHEN c.user_a = ? THEN c.user_b ELSE c.user_a END AS other_id
+            FROM conversations c
+            WHERE c.user_a = ? OR c.user_b = ?
+            """,
+            (user["id"], user["id"], user["id"]),
+        ).fetchall()
+        out = []
+        for c in convs:
+            other = conn.execute("SELECT * FROM users WHERE id = ?", (c["other_id"],)).fetchone()
+            last = conn.execute(
+                "SELECT text, created_at, sender_id FROM messages WHERE conv_id = ? "
+                "ORDER BY id DESC LIMIT 1",
+                (c["id"],),
+            ).fetchone()
+            if last is None:
+                continue  # conversation vide, on ne l'affiche pas
+            unread = conn.execute(
+                "SELECT COUNT(*) AS n FROM messages WHERE conv_id = ? AND sender_id != ? AND read = 0",
+                (c["id"], user["id"]),
+            ).fetchone()["n"]
+            out.append({
+                "id": c["id"],
+                "other": public_user(other),
+                "last_text": last["text"],
+                "last_at": last["created_at"],
+                "last_from_me": last["sender_id"] == user["id"],
+                "unread": unread,
+            })
+        out.sort(key=lambda x: x["last_at"], reverse=True)
+        total_unread = sum(x["unread"] for x in out)
+        return {"conversations": out, "unread": total_unread}
+
+
+@app.get("/api/conversations/with/{username}")
+def open_conversation(username: str, user: dict = Depends(current_user)):
+    """Ouvre (ou crée) la conversation avec un utilisateur et renvoie ses messages."""
+    with get_conn() as conn:
+        other = conn.execute(
+            "SELECT * FROM users WHERE username = ?", (username.lower().strip(),)
+        ).fetchone()
+        if other is None:
+            raise HTTPException(404, "utilisateur introuvable")
+        if other["id"] == user["id"]:
+            raise HTTPException(400, "Tu ne peux pas t'écrire à toi-même")
+        conv_id = _get_or_create_conv(conn, user["id"], other["id"])
+        conn.execute(
+            "UPDATE messages SET read = 1 WHERE conv_id = ? AND sender_id != ?",
+            (conv_id, user["id"]),
+        )
+        msgs = conn.execute(
+            "SELECT id, sender_id, text, created_at, (sender_id = ?) AS is_me "
+            "FROM messages WHERE conv_id = ? ORDER BY id",
+            (user["id"], conv_id),
+        ).fetchall()
+        return {"conv_id": conv_id, "other": public_user(other),
+                "messages": [dict(m) for m in msgs]}
+
+
+@app.post("/api/conversations/with/{username}", status_code=201)
+def send_message(username: str, body: MessageIn, user: dict = Depends(current_user)):
+    with get_conn() as conn:
+        other = conn.execute(
+            "SELECT * FROM users WHERE username = ?", (username.lower().strip(),)
+        ).fetchone()
+        if other is None:
+            raise HTTPException(404, "utilisateur introuvable")
+        if other["id"] == user["id"]:
+            raise HTTPException(400, "Tu ne peux pas t'écrire à toi-même")
+        conv_id = _get_or_create_conv(conn, user["id"], other["id"])
+        cur = conn.execute(
+            "INSERT INTO messages (conv_id, sender_id, text) VALUES (?, ?, ?)",
+            (conv_id, user["id"], body.text.strip()),
+        )
+        notify(conn, other["id"], user["id"], "message")
+        row = conn.execute(
+            "SELECT id, sender_id, text, created_at, 1 AS is_me FROM messages WHERE id = ?",
+            (cur.lastrowid,),
+        ).fetchone()
+        return dict(row)
 
 
 # ---------- Notifications ----------

@@ -12,12 +12,15 @@ import Recap from './components/Recap'
 import Timeline from './components/Timeline'
 import Icon from './components/Icon'
 import UserSheet from './components/UserSheet'
+import Messages from './components/Messages'
+import SearchUsers from './components/SearchUsers'
+import SharedMoment from './components/SharedMoment'
 
 export default function App() {
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
 
-  const [view, setView] = useState('feed') // feed | discover | day | profile | notifs
+  const [view, setView] = useState('feed') // feed | discover | day | profile | notifs | messages | search
   const [dayTab, setDayTab] = useState('day') // day | timeline
   const [date, setDate] = useState(toISO(new Date()))
   const [events, setEvents] = useState([])
@@ -25,7 +28,13 @@ export default function App() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [notifs, setNotifs] = useState(null)
+  const [dmUnread, setDmUnread] = useState(0)
+  const [dmWith, setDmWith] = useState(null) // ouvrir directement une conv
   const [userSheet, setUserSheet] = useState(null) // profil ouvert depuis Profil/Notifs
+
+  // Route publique de partage : /s/<token> — aucune authentification requise
+  const sharePath = window.location.pathname.match(/^\/s\/([a-zA-Z0-9]+)/)
+  const openMessages = (username) => { setDmWith(username || null); setView('messages') }
 
   useEffect(() => {
     if (!getToken()) { setAuthChecked(true); return }
@@ -34,9 +43,12 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return
-    const load = () => api.notifications().then(setNotifs).catch(() => {})
+    const load = () => {
+      api.notifications().then(setNotifs).catch(() => {})
+      api.conversations().then((d) => setDmUnread(d.unread)).catch(() => {})
+    }
     load()
-    const id = setInterval(load, 60_000)
+    const id = setInterval(load, 30_000)
     return () => clearInterval(id)
   }, [user])
 
@@ -72,6 +84,11 @@ export default function App() {
     setFormOpen(true)
   }
 
+  // Page publique de partage — court-circuite l'auth
+  if (sharePath) {
+    return <SharedMoment token={sharePath[1]} />
+  }
+
   if (!authChecked) {
     return <div className="phone"><p className="muted center">📸</p></div>
   }
@@ -96,6 +113,21 @@ export default function App() {
         </div>
         <div className="topbar-actions">
           <button
+            className={`topbar-bell ${view === 'search' ? 'active' : ''}`}
+            onClick={() => setView('search')}
+            aria-label="Rechercher un compte"
+          >
+            <Icon name="search" size="21" />
+          </button>
+          <button
+            className={`topbar-bell ${view === 'messages' ? 'active' : ''}`}
+            onClick={() => openMessages(null)}
+            aria-label="Messages"
+          >
+            <Icon name="message" size="21" />
+            {dmUnread > 0 && <span className="bell-badge">{dmUnread > 9 ? '9+' : dmUnread}</span>}
+          </button>
+          <button
             className={`topbar-bell ${view === 'notifs' ? 'active' : ''}`}
             onClick={() => setView('notifs')}
             aria-label="Notifications"
@@ -110,9 +142,19 @@ export default function App() {
       </header>
 
       <div className={`screen ${view === 'feed' ? 'screen--immersive' : ''}`}>
-        {view === 'feed' && <Feed key={date} />}
+        {view === 'feed' && <Feed key={date} onMessage={openMessages} />}
 
-        {view === 'discover' && <Discover />}
+        {view === 'discover' && <Discover onMessage={openMessages} />}
+
+        {view === 'search' && <SearchUsers onOpenUser={setUserSheet} />}
+
+        {view === 'messages' && (
+          <Messages
+            openWith={dmWith}
+            onConsumeOpen={() => setDmWith(null)}
+            onOpenUser={setUserSheet}
+          />
+        )}
 
         {view === 'notifs' && (
           <Notifications
@@ -120,6 +162,7 @@ export default function App() {
             onSeen={markNotifsSeen}
             goProfile={() => setView('profile')}
             goFeed={() => setView('feed')}
+            goMessages={openMessages}
           />
         )}
 
@@ -224,6 +267,7 @@ export default function App() {
           username={userSheet}
           onClose={() => setUserSheet(null)}
           onOpenUser={setUserSheet}
+          onMessage={(u) => { setUserSheet(null); openMessages(u) }}
         />
       )}
     </div>

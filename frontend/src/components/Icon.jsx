@@ -29,6 +29,8 @@ const ICON_MAP = {
   '👤': { name: 'profile', label: 'Profil' },
   '🔔': { name: 'bell', label: 'Notifications' },
   '🕰️': { name: 'clock', label: 'Souvenirs' },
+  '💌': { name: 'message', label: 'Message' },
+  '🔗': { name: 'share', label: 'Partager' },
   // Avatars
   '😎': { name: 'cool', label: 'Avatar' },
   '🌙': { name: 'moon', label: 'Avatar' },

@@ -5,7 +5,7 @@ import UserSheet from './UserSheet'
 import ContextSheet from './ContextSheet'
 import Icon from './Icon'
 
-export default function Feed() {
+export default function Feed({ onMessage }) {
   const [moments, setMoments] = useState(null)
   const [userSheet, setUserSheet] = useState(null)   // username | null
   const [ctxSheet, setCtxSheet] = useState(null)     // context | null
@@ -43,6 +43,7 @@ export default function Feed() {
           onClose={() => setUserSheet(null)}
           onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
           onOpenUser={(u) => setUserSheet(u)}
+          onMessage={onMessage}
         />
       )}
       {ctxSheet && (

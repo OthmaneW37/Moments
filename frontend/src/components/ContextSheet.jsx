@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import Icon from './Icon'
+import Media from './Media'
+import WorkDiscussion from './WorkDiscussion'
 
 // Page d'une fiche (film / série / livre / match / lieu) : la note de la
 // communauté Moments, la note de la source, et les moments qui en parlent.
@@ -55,11 +57,20 @@ export default function ContextSheet({ context, onClose, onOpenUser }) {
         {!data && !error && <p className="muted center">Chargement…</p>}
 
         {data && (
+          <WorkDiscussion
+            kind={fiche.kind}
+            title={fiche.title}
+            initial={data.discussion || []}
+            onOpenUser={onOpenUser}
+          />
+        )}
+
+        {data && data.moments.length > 0 && (
           <div className="csheet-moments">
             <h3>{data.moments.length} moment{data.moments.length > 1 ? 's' : ''} · qui en parle</h3>
             {data.moments.map((m) => (
               <article className="csheet-moment" key={m.id}>
-                <img src={m.photos[0].url} alt="" loading="lazy" />
+                <Media media={m.photos[0]} alt="" />
                 <div className="csheet-moment-info">
                   <button className="linklike" onClick={() => onOpenUser?.(m.author.username)}>
                     <Icon emoji={m.author.emoji} size="16" /> {m.author.is_me ? 'Toi' : m.author.display_name}

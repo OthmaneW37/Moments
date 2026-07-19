@@ -4,6 +4,7 @@ import { useReaction } from '../useReaction'
 import Comments from './Comments'
 import ContextCard from './ContextCard'
 import Icon from './Icon'
+import Media from './Media'
 
 function dateLabel(iso) {
   const today = toISO(new Date())
@@ -39,7 +40,7 @@ function Slide({ moment }) {
 
   return (
     <section className="viewer-slide">
-      <img className="viewer-photo" src={hero.url} alt={moment.title} onClick={handleTap} />
+      <Media media={hero} className="viewer-photo" alt={moment.title} onClick={handleTap} autoPlay />
       <div className="viewer-veil" aria-hidden="true" />
       {burst > 0 && <span key={burst} className="heart-burst big" aria-hidden="true">❤️</span>}
 

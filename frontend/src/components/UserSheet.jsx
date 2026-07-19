@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { api, CATEGORY_META } from '../api'
 import Icon from './Icon'
+import Media from './Media'
 
 const FOLLOW_LABEL = { none: "S'abonner", pending: 'Demandé', following: 'Abonné' }
 
 // Page profil d'un utilisateur, en feuille plein écran par-dessus le feed.
-export default function UserSheet({ username, onClose, onOpenContext, onOpenUser }) {
+export default function UserSheet({ username, onClose, onOpenContext, onOpenUser, onMessage }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -70,13 +71,20 @@ export default function UserSheet({ username, onClose, onOpenContext, onOpenUser
               </p>
             </div>
             {!data.is_me && (
-              <button
-                className={`btn follow-btn ${data.follow_state === 'none' ? 'primary' : ''}`}
-                onClick={toggleFollow}
-                disabled={busy}
-              >
-                {FOLLOW_LABEL[data.follow_state]}
-              </button>
+              <div className="usheet-hero-actions">
+                <button
+                  className={`btn follow-btn ${data.follow_state === 'none' ? 'primary' : ''}`}
+                  onClick={toggleFollow}
+                  disabled={busy}
+                >
+                  {FOLLOW_LABEL[data.follow_state]}
+                </button>
+                {onMessage && (
+                  <button className="btn ghost msg-btn" onClick={() => onMessage(data.username)} aria-label="Message">
+                    <Icon name="message" size="18" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -125,7 +133,8 @@ export default function UserSheet({ username, onClose, onOpenContext, onOpenUser
                 const meta = CATEGORY_META[m.category] ?? CATEGORY_META.autre
                 return (
                   <figure className="usheet-cell" key={m.id} style={{ '--cat': meta.color }}>
-                    <img src={m.photos[0].url} alt={m.title} loading="lazy" />
+                    <Media media={m.photos[0]} alt={m.title} />
+                    {m.photos[0].media_type === 'video' && <Icon name="video-badge" size="22" className="cell-video-badge" />}
                     <figcaption>
                       <span className="usheet-cat"><Icon emoji={meta.emoji} size="15" /></span>
                       <span className="usheet-cell-title">{m.title}</span>
