@@ -912,7 +912,54 @@ button { font-family: inherit; color: inherit; }
 
 /* Profil public */
 .usheet { flex: 1; overflow-y: auto; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); }
-.usheet-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.usheet-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.usheet-hero-main { flex: 1; min-width: 0; }
+.follow-btn { flex-shrink: 0; padding: 8px 16px; font-weight: 700; }
+.follow-btn:not(.primary) {
+  background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink);
+}
+
+/* Listes abonnés / abonnements */
+.people-list {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 12px 14px; margin-bottom: 16px;
+}
+.people-list-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+  font-family: var(--font-display);
+}
+.people-list-close {
+  background: none; border: 0; font-size: 1.3rem; cursor: pointer; color: var(--muted);
+  line-height: 1; padding: 2px 6px;
+}
+.people-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: 0; padding: 8px 2px; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.people-row:last-child { border-bottom: 0; }
+.people-name { font-weight: 700; }
+.people-row .muted { font-size: 0.78rem; }
+
+/* Toggle compte privé */
+.privacy-toggle {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 13px 14px; cursor: pointer; font: inherit; color: inherit; text-align: left;
+}
+.privacy-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.privacy-info .muted { font-size: 0.78rem; line-height: 1.35; }
+.switch {
+  width: 46px; height: 27px; border-radius: 999px; flex-shrink: 0;
+  background: var(--border-strong); position: relative; transition: background 0.18s;
+}
+.switch.on { background: var(--accent); }
+.switch-dot {
+  position: absolute; top: 3px; left: 3px; width: 21px; height: 21px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.18s;
+}
+.switch.on .switch-dot { transform: translateX(19px); }
 .usheet-avatar {
   width: 64px; height: 64px; border-radius: 50%; font-size: 2rem; flex-shrink: 0;
   background: var(--surface); border: 1px solid var(--border-strong);
@@ -923,10 +970,14 @@ button { font-family: inherit; color: inherit; }
 .usheet-stats {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px;
 }
-.usheet-stats > div {
+.usheet-stats > div,
+.usheet-stats > button {
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
   padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font: inherit; color: inherit; cursor: default;
 }
+.usheet-stats > button { cursor: pointer; }
+.usheet-stats > button:active { background: var(--accent-tint); }
 .usheet-stats strong { font-family: var(--font-display); font-size: 1.25rem; }
 .usheet-stats span { font-size: 0.66rem; color: var(--muted); text-align: center; }
 .usheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

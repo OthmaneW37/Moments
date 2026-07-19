@@ -78,7 +78,7 @@ export default function MomentCard({ moment, onOpen, onOpenUser, onOpenContext }
             className="moment-avatar"
             onClick={(e) => { e.stopPropagation(); onOpenUser?.(author.username) }}
           >
-            {author.emoji}
+            <Icon emoji={author.emoji} size="20" />
           </button>
           <div className="moment-who" onClick={(e) => { e.stopPropagation(); onOpenUser?.(author.username) }}>
             <strong>{author.is_me ? 'Toi' : author.display_name}</strong>
@@ -91,7 +91,7 @@ export default function MomentCard({ moment, onOpen, onOpenUser, onOpenContext }
           {multi && <span className="moment-count">1 / {moment.photos.length}</span>}
         </header>
 
-        <span className="moment-cat">{meta.emoji} {meta.label}</span>
+        <span className="moment-cat"><Icon emoji={meta.emoji} size="15" /> {meta.label}</span>
 
         <div className="moment-caption">
           {tags.length > 0 && (
@@ -150,7 +150,7 @@ export default function MomentCard({ moment, onOpen, onOpenUser, onOpenContext }
           className={`like-btn ${showComments ? 'liked' : ''}`}
           onClick={() => setShowComments((s) => !s)}
         >
-          💬 {commentCount > 0 ? commentCount : ''}
+          <Icon emoji="💬" size="18" /> {commentCount > 0 ? commentCount : ''}
         </button>
       </footer>
 

@@ -3,6 +3,7 @@ import { api } from '../api'
 import ImmersiveFeed from './ImmersiveFeed'
 import UserSheet from './UserSheet'
 import ContextSheet from './ContextSheet'
+import Icon from './Icon'
 
 export default function Feed() {
   const [moments, setMoments] = useState(null)
@@ -18,11 +19,12 @@ export default function Feed() {
   if (moments.length === 0) {
     return (
       <div className="empty-state ifeed-empty">
-        <span className="empty-emoji">🫂</span>
+        <Icon emoji="🫂" size="56" className="empty-emoji" />
         <h3>Ton feed est vide</h3>
         <p>
-          Ajoute des amis depuis ton profil, capture tes moments en photo —
-          et vous verrez la vraie vie des uns et des autres ici.
+          Abonne-toi à des comptes depuis la Découverte ou ton profil,
+          capture tes moments en photo — et vous verrez la vraie vie
+          des uns et des autres ici.
         </p>
       </div>
     )
@@ -40,6 +42,7 @@ export default function Feed() {
           username={userSheet}
           onClose={() => setUserSheet(null)}
           onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
+          onOpenUser={(u) => setUserSheet(u)}
         />
       )}
       {ctxSheet && (

@@ -1,22 +1,27 @@
 import { useEffect, useState } from 'react'
 import { api, CATEGORY_META, setToken } from '../api'
+import Icon from './Icon'
 
-export default function Profile({ user, onLogout, onUserChange, onOpenRecap }) {
+export default function Profile({ user, onLogout, onUserChange, onOpenRecap, onOpenUser }) {
   const [stats, setStats] = useState(null)
   const [summary, setSummary] = useState(null)
-  const [friendsData, setFriendsData] = useState({ friends: [], pending: [], sent: [] })
+  const [me, setMe] = useState(null)             // profil public (compteurs)
+  const [requests, setRequests] = useState([])   // demandes d'abonnement reçues
+  const [peopleList, setPeopleList] = useState(null) // { title, users } | null
   const [search, setSearch] = useState('')
   const [message, setMessage] = useState(null)
   const [city, setCity] = useState(user.city || '')
   const [citySaved, setCitySaved] = useState(false)
+  const [isPrivate, setIsPrivate] = useState(Boolean(user.is_private))
 
   const refresh = () => {
     api.stats().then(setStats).catch(() => {})
     api.weekSummary().then(setSummary).catch(() => {})
-    api.friends().then(setFriendsData).catch(() => {})
+    api.userProfile(user.username).then(setMe).catch(() => {})
+    api.followRequests().then(setRequests).catch(() => {})
   }
 
-  useEffect(refresh, [])
+  useEffect(refresh, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSaveCity(e) {
     e.preventDefault()
@@ -26,13 +31,33 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap }) {
     onUserChange?.(updated)
   }
 
-  async function handleAddFriend(e) {
+  async function handleTogglePrivate() {
+    const next = !isPrivate
+    setIsPrivate(next)
+    try {
+      const updated = await api.updateProfile({ is_private: next })
+      onUserChange?.(updated)
+      refresh() // en repassant en public, les demandes en attente sont acceptées
+    } catch {
+      setIsPrivate(!next)
+    }
+  }
+
+  async function handleFollow(e) {
     e.preventDefault()
     if (!search.trim()) return
     setMessage(null)
     try {
-      const res = await api.sendFriendRequest(search.trim().toLowerCase())
-      setMessage({ ok: true, text: res.message })
+      const username = search.trim().toLowerCase().replace(/^@/, '')
+      const r = await api.follow(username)
+      setMessage({
+        ok: true,
+        text: r.state === 'pending'
+          ? `Demande envoyée à @${username} (compte privé)`
+          : r.state === 'following'
+            ? `Tu es maintenant abonné à @${username} 🎉`
+            : `Désabonné de @${username}`,
+      })
       setSearch('')
       refresh()
     } catch (err) {
@@ -41,8 +66,17 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap }) {
   }
 
   async function handleRespond(requestId, accept) {
-    await api.respondFriendRequest(requestId, accept)
+    await api.respondFollowRequest(requestId, accept)
     refresh()
+  }
+
+  async function openPeople(kind) {
+    try {
+      const users = kind === 'followers'
+        ? await api.followers(user.username)
+        : await api.following(user.username)
+      setPeopleList({ title: kind === 'followers' ? 'Mes abonnés' : 'Mes abonnements', users })
+    } catch { /* ignore */ }
   }
 
   function handleLogout() {
@@ -53,12 +87,95 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap }) {
   return (
     <div className="profile">
       <div className="profile-hero">
-        <span className="profile-avatar">{user.emoji}</span>
+        <span className="profile-avatar"><Icon emoji={user.emoji} size="34" /></span>
         <div className="profile-id">
           <h2>{user.display_name}</h2>
-          <p className="muted">@{user.username}{user.city ? ` · ${user.city}` : ''}</p>
+          <p className="muted">
+            @{user.username}{user.city ? ` · ${user.city}` : ''}{isPrivate ? ' · 🔒' : ''}
+          </p>
         </div>
       </div>
+
+      {me && (
+        <div className="usheet-stats">
+          <div><strong>{stats?.events ?? '…'}</strong><span>moments</span></div>
+          <button onClick={() => openPeople('followers')}>
+            <strong>{me.followers}</strong><span>abonnés</span>
+          </button>
+          <button onClick={() => openPeople('following')}>
+            <strong>{me.following}</strong><span>abonnements</span>
+          </button>
+        </div>
+      )}
+
+      {peopleList && (
+        <div className="people-list">
+          <div className="people-list-head">
+            <strong>{peopleList.title}</strong>
+            <button className="people-list-close" onClick={() => setPeopleList(null)}>×</button>
+          </div>
+          {peopleList.users.length === 0 && <p className="muted">Personne pour l'instant.</p>}
+          {peopleList.users.map((u) => (
+            <button key={u.username} className="people-row" onClick={() => onOpenUser?.(u.username)}>
+              <Icon emoji={u.emoji} size="20" />
+              <span className="people-name">{u.is_me ? 'Toi' : u.display_name}</span>
+              <span className="muted">@{u.username}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {requests.length > 0 && (
+        <section className="profile-section">
+          <h3>Demandes d'abonnement 👋</h3>
+          {requests.map((p) => (
+            <div className="friend-row" key={p.request_id}>
+              <span className="friend-avatar"><Icon emoji={p.emoji} size="20" /></span>
+              <div className="friend-who">
+                <strong>{p.display_name}</strong>
+                <span className="muted">@{p.username}</span>
+              </div>
+              <div className="friend-actions">
+                <button className="btn primary sm" onClick={() => handleRespond(p.request_id, true)}>Accepter</button>
+                <button className="btn ghost sm" onClick={() => handleRespond(p.request_id, false)}>Refuser</button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section className="profile-section">
+        <h3>Suivre un compte</h3>
+        <form className="add-friend" onSubmit={handleFollow}>
+          <input
+            placeholder="Pseudo (ex : sara)…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoCapitalize="none"
+          />
+          <button className="btn primary" type="submit" disabled={!search.trim()}>
+            S'abonner
+          </button>
+        </form>
+        {message && (
+          <p className={message.ok ? 'auth-ok' : 'auth-error'}>{message.text}</p>
+        )}
+      </section>
+
+      <section className="profile-section">
+        <h3>Confidentialité</h3>
+        <button className="privacy-toggle" onClick={handleTogglePrivate}>
+          <span className="privacy-info">
+            <strong>{isPrivate ? '🔒 Compte privé' : '🌍 Compte public'}</strong>
+            <span className="muted">
+              {isPrivate
+                ? "Les nouvelles personnes doivent t'envoyer une demande pour te suivre et voir tes moments."
+                : 'Tout le monde peut te suivre et voir tes moments publics dans la Découverte.'}
+            </span>
+          </span>
+          <span className={`switch ${isPrivate ? 'on' : ''}`} aria-hidden="true"><span className="switch-dot" /></span>
+        </button>
+      </section>
 
       {summary && (
         <div className="week-summary">
@@ -77,77 +194,9 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap }) {
 
       {stats && stats.streak > 0 && (
         <div className="streak-banner">
-          🔥 <strong>{stats.streak} jour{stats.streak > 1 ? 's' : ''}</strong> de suite avec un moment capturé — continue !
+          <Icon emoji="🔥" size="18" /> <strong>{stats.streak} jour{stats.streak > 1 ? 's' : ''}</strong> de suite avec un moment capturé — continue !
         </div>
       )}
-
-      {stats && (
-        <div className="stat-grid">
-          <div className="stat-box"><strong>{stats.events}</strong><span>moments</span></div>
-          <div className="stat-box"><strong>{stats.photos}</strong><span>photos</span></div>
-          <div className="stat-box"><strong>{friendsData.friends.length}</strong><span>amis</span></div>
-          <div className="stat-box"><strong>{stats.likes_received}</strong><span>likes reçus</span></div>
-        </div>
-      )}
-
-      <section className="profile-section">
-        <h3>Ajouter un ami</h3>
-        <form className="add-friend" onSubmit={handleAddFriend}>
-          <input
-            placeholder="Pseudo de ton ami…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoCapitalize="none"
-          />
-          <button className="btn primary" type="submit" disabled={!search.trim()}>
-            Ajouter
-          </button>
-        </form>
-        {message && (
-          <p className={message.ok ? 'auth-ok' : 'auth-error'}>{message.text}</p>
-        )}
-      </section>
-
-      {friendsData.pending.length > 0 && (
-        <section className="profile-section">
-          <h3>Demandes reçues 👋</h3>
-          {friendsData.pending.map((p) => (
-            <div className="friend-row" key={p.request_id}>
-              <span className="friend-avatar">{p.emoji}</span>
-              <div className="friend-who">
-                <strong>{p.display_name}</strong>
-                <span className="muted">@{p.username}</span>
-              </div>
-              <div className="friend-actions">
-                <button className="btn primary sm" onClick={() => handleRespond(p.request_id, true)}>Accepter</button>
-                <button className="btn ghost sm" onClick={() => handleRespond(p.request_id, false)}>Refuser</button>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
-
-      <section className="profile-section">
-        <h3>Mes amis ({friendsData.friends.length})</h3>
-        {friendsData.friends.length === 0 ? (
-          <p className="muted">Pas encore d'amis — ajoute-les par leur pseudo !</p>
-        ) : (
-          friendsData.friends.map((f) => (
-            <div className="friend-row" key={f.id}>
-              <span className="friend-avatar">{f.emoji}</span>
-              <div className="friend-who">
-                <strong>{f.display_name}</strong>
-                <span className="muted">@{f.username}</span>
-              </div>
-            </div>
-          ))
-        )}
-        {friendsData.sent.length > 0 && (
-          <p className="muted sent-info">
-            En attente : {friendsData.sent.map((s) => `@${s.username}`).join(', ')}
-          </p>
-        )}
-      </section>
 
       {stats && Object.keys(stats.by_category).length > 0 && (
         <section className="profile-section">
@@ -157,7 +206,7 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap }) {
               const meta = CATEGORY_META[cat] ?? CATEGORY_META.autre
               return (
                 <span className="cat-stat" key={cat} style={{ '--cat': meta.color }}>
-                  {meta.emoji} {meta.label} × {n}
+                  <Icon emoji={meta.emoji} size="14" /> {meta.label} × {n}
                 </span>
               )
             })}

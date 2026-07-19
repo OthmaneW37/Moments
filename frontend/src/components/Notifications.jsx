@@ -1,6 +1,10 @@
 import { useEffect } from 'react'
+import Icon from './Icon'
 
 const NOTIF_TEXT = {
+  follow: () => `s'est abonné à toi 🎉`,
+  follow_request: () => `veut s'abonner à toi 👋`,
+  follow_accept: () => `a accepté ta demande d'abonnement 🤝`,
   friend_request: () => `t'a envoyé une demande d'ami 👋`,
   friend_accept: () => `a accepté ta demande d'ami 🤝`,
   like: (n) => `a liké ton moment${n.event_title ? ` « ${n.event_title} »` : ''} ❤️`,
@@ -30,9 +34,9 @@ export default function Notifications({ data, onSeen, goProfile, goFeed }) {
   if (data.items.length === 0) {
     return (
       <div className="empty-state">
-        <span className="empty-emoji">🔔</span>
+        <Icon emoji="🔔" size="56" className="empty-emoji" />
         <h3>Rien pour l'instant</h3>
-        <p>Quand tes amis likeront ou commenteront tes moments, tu le verras ici.</p>
+        <p>Quand tes abonnés réagiront ou commenteront tes moments, tu le verras ici.</p>
       </div>
     )
   }
@@ -44,9 +48,9 @@ export default function Notifications({ data, onSeen, goProfile, goFeed }) {
         <button
           className={`notif-row ${n.read ? '' : 'unread'}`}
           key={n.id}
-          onClick={() => { if (n.type.startsWith('friend')) goProfile(); else goFeed?.() }}
+          onClick={() => { if (n.type.startsWith('friend') || n.type.startsWith('follow')) goProfile(); else goFeed?.() }}
         >
-          <span className="friend-avatar">{n.actor.emoji}</span>
+          <span className="friend-avatar"><Icon emoji={n.actor.emoji} size="20" /></span>
           <div className="notif-body">
             <span>
               <strong>{n.actor.display_name}</strong>{' '}

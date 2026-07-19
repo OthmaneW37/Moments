@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 
 from .auth import create_token, current_user, hash_password, verify_password
 from .context import search_context
-from .db import friend_ids, get_conn, init_db, notify, photos_for_events, row_to_event
+from .db import (friend_ids, follower_ids, following_ids, get_conn, init_db,
+                 notify, photos_for_events, row_to_event)
 from .vision import analyze_photo
 
 REACTION_EMOJIS = ["❤️", "🔥", "😂", "😍", "😮", "👏"]
@@ -73,7 +74,8 @@ class SignupIn(BaseModel):
 
 
 class ProfileUpdateIn(BaseModel):
-    city: str = Field(default="", max_length=60)
+    city: str | None = Field(default=None, max_length=60)
+    is_private: bool | None = None
 
 
 class ReactionIn(BaseModel):
@@ -106,6 +108,7 @@ def public_user(row) -> dict:
         "display_name": row["display_name"],
         "emoji": row["emoji"],
         "city": row["city"] if "city" in keys else "",
+        "is_private": bool(row["is_private"]) if "is_private" in keys else False,
     }
 
 
@@ -151,9 +154,16 @@ def me(user: dict = Depends(current_user)):
 @app.put("/api/profile")
 def update_profile(body: ProfileUpdateIn, user: dict = Depends(current_user)):
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE users SET city = ? WHERE id = ?", (body.city.strip(), user["id"])
-        )
+        if body.city is not None:
+            conn.execute("UPDATE users SET city = ? WHERE id = ?", (body.city.strip(), user["id"]))
+        if body.is_private is not None:
+            conn.execute("UPDATE users SET is_private = ? WHERE id = ?", (int(body.is_private), user["id"]))
+            # Passage en public : les demandes en attente sont acceptées d'office
+            if not body.is_private:
+                conn.execute(
+                    "UPDATE friendships SET status = 'accepted' WHERE addressee_id = ? AND status = 'pending'",
+                    (user["id"],),
+                )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
     return public_user(row)
 
@@ -319,37 +329,72 @@ def delete_photo(photo_id: int, user: dict = Depends(current_user)):
 
 # ---------- Amis ----------
 
-@app.post("/api/friends/request", status_code=201)
-def send_friend_request(body: FriendRequestIn, user: dict = Depends(current_user)):
+# ---------- Abonnements (follow, façon réseau social) ----------
+
+def _follow_state(conn, me: int, target: int) -> str:
+    """none | pending | following (moi -> target)."""
+    row = conn.execute(
+        "SELECT status FROM friendships WHERE requester_id = ? AND addressee_id = ?",
+        (me, target),
+    ).fetchone()
+    if row is None:
+        return "none"
+    return "following" if row["status"] == "accepted" else "pending"
+
+
+@app.post("/api/users/{username}/follow")
+def toggle_follow(username: str, user: dict = Depends(current_user)):
+    """S'abonner / annuler la demande / se désabonner (toggle).
+    Compte public -> abonnement immédiat ; compte privé -> demande en attente."""
     with get_conn() as conn:
         target = conn.execute(
-            "SELECT * FROM users WHERE username = ?", (body.username,)
+            "SELECT * FROM users WHERE username = ?", (username.lower().strip(),)
         ).fetchone()
         if target is None:
             raise HTTPException(404, "Aucun utilisateur avec ce pseudo")
         if target["id"] == user["id"]:
-            raise HTTPException(400, "Tu ne peux pas t'ajouter toi-même 😅")
-        existing = conn.execute(
+            raise HTTPException(400, "Tu ne peux pas t'abonner à toi-même 😅")
+        state = _follow_state(conn, user["id"], target["id"])
+        if state != "none":
+            # Déjà abonné ou demande envoyée -> on annule
+            conn.execute(
+                "DELETE FROM friendships WHERE requester_id = ? AND addressee_id = ?",
+                (user["id"], target["id"]),
+            )
+            new_state = "none"
+        else:
+            is_private = bool(target["is_private"]) if "is_private" in target.keys() else False
+            status = "pending" if is_private else "accepted"
+            conn.execute(
+                "INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?, ?, ?)",
+                (user["id"], target["id"], status),
+            )
+            notify(conn, target["id"], user["id"],
+                   "follow_request" if status == "pending" else "follow")
+            new_state = "pending" if status == "pending" else "following"
+        followers = len(follower_ids(conn, target["id"]))
+    return {"state": new_state, "followers": followers}
+
+
+@app.get("/api/follow/requests")
+def follow_requests(user: dict = Depends(current_user)):
+    """Demandes d'abonnement en attente (pour un compte privé)."""
+    with get_conn() as conn:
+        rows = conn.execute(
             """
-            SELECT * FROM friendships
-            WHERE (requester_id = ? AND addressee_id = ?)
-               OR (requester_id = ? AND addressee_id = ?)
+            SELECT f.id AS request_id, u.id, u.username, u.display_name, u.emoji, u.city
+            FROM friendships f JOIN users u ON u.id = f.requester_id
+            WHERE f.addressee_id = ? AND f.status = 'pending'
+            ORDER BY f.created_at DESC
             """,
-            (user["id"], target["id"], target["id"], user["id"]),
-        ).fetchone()
-        if existing:
-            msg = "Vous êtes déjà amis" if existing["status"] == "accepted" else "Demande déjà en attente"
-            raise HTTPException(409, msg)
-        conn.execute(
-            "INSERT INTO friendships (requester_id, addressee_id) VALUES (?, ?)",
-            (user["id"], target["id"]),
-        )
-        notify(conn, target["id"], user["id"], "friend_request")
-    return {"ok": True, "message": f"Demande envoyée à @{target['username']}"}
+            (user["id"],),
+        ).fetchall()
+    return [{**public_user(r), "request_id": r["request_id"]} for r in rows]
 
 
-@app.post("/api/friends/respond")
-def respond_friend_request(body: FriendRespondIn, user: dict = Depends(current_user)):
+@app.post("/api/follow/respond")
+def respond_follow_request(body: FriendRespondIn, user: dict = Depends(current_user)):
+    """Accepter / refuser une demande d'abonnement reçue."""
     with get_conn() as conn:
         req = conn.execute(
             "SELECT * FROM friendships WHERE id = ? AND addressee_id = ? AND status = 'pending'",
@@ -361,52 +406,63 @@ def respond_friend_request(body: FriendRespondIn, user: dict = Depends(current_u
             conn.execute(
                 "UPDATE friendships SET status = 'accepted' WHERE id = ?", (body.request_id,)
             )
-            notify(conn, req["requester_id"], user["id"], "friend_accept")
+            notify(conn, req["requester_id"], user["id"], "follow_accept")
         else:
             conn.execute("DELETE FROM friendships WHERE id = ?", (body.request_id,))
     return {"ok": True}
 
 
-@app.get("/api/friends")
-def list_friends(user: dict = Depends(current_user)):
+def _user_list(conn, rows, me: int) -> list[dict]:
+    out = []
+    for r in rows:
+        out.append({**public_user(r), "is_me": r["id"] == me,
+                    "follow_state": _follow_state(conn, me, r["id"])})
+    return out
+
+
+@app.get("/api/users/{username}/followers")
+def list_followers(username: str, user: dict = Depends(current_user)):
     with get_conn() as conn:
-        friends = conn.execute(
+        target = conn.execute("SELECT * FROM users WHERE username = ?",
+                              (username.lower().strip(),)).fetchone()
+        if target is None:
+            raise HTTPException(404, "utilisateur introuvable")
+        _require_profile_access(conn, user["id"], target)
+        rows = conn.execute(
             """
-            SELECT u.id, u.username, u.display_name, u.emoji
-            FROM friendships f
-            JOIN users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id
-                                        ELSE f.requester_id END
-            WHERE (f.requester_id = ? OR f.addressee_id = ?) AND f.status = 'accepted'
-            ORDER BY u.display_name
+            SELECT u.* FROM friendships f JOIN users u ON u.id = f.requester_id
+            WHERE f.addressee_id = ? AND f.status = 'accepted' ORDER BY u.display_name
             """,
-            (user["id"], user["id"], user["id"]),
+            (target["id"],),
         ).fetchall()
-        pending = conn.execute(
+        return _user_list(conn, rows, user["id"])
+
+
+@app.get("/api/users/{username}/following")
+def list_following(username: str, user: dict = Depends(current_user)):
+    with get_conn() as conn:
+        target = conn.execute("SELECT * FROM users WHERE username = ?",
+                              (username.lower().strip(),)).fetchone()
+        if target is None:
+            raise HTTPException(404, "utilisateur introuvable")
+        _require_profile_access(conn, user["id"], target)
+        rows = conn.execute(
             """
-            SELECT f.id AS request_id, u.id, u.username, u.display_name, u.emoji
-            FROM friendships f
-            JOIN users u ON u.id = f.requester_id
-            WHERE f.addressee_id = ? AND f.status = 'pending'
-            ORDER BY f.created_at DESC
+            SELECT u.* FROM friendships f JOIN users u ON u.id = f.addressee_id
+            WHERE f.requester_id = ? AND f.status = 'accepted' ORDER BY u.display_name
             """,
-            (user["id"],),
+            (target["id"],),
         ).fetchall()
-        sent = conn.execute(
-            """
-            SELECT u.username, u.display_name, u.emoji
-            FROM friendships f
-            JOIN users u ON u.id = f.addressee_id
-            WHERE f.requester_id = ? AND f.status = 'pending'
-            """,
-            (user["id"],),
-        ).fetchall()
-    return {
-        "friends": [public_user(r) for r in friends],
-        "pending": [
-            {**public_user(r), "request_id": r["request_id"]} for r in pending
-        ],
-        "sent": [dict(r) for r in sent],
-    }
+        return _user_list(conn, rows, user["id"])
+
+
+def _require_profile_access(conn, me: int, target) -> None:
+    """Un profil privé n'expose ses listes/moments qu'à ses abonnés (et à lui-même)."""
+    is_private = bool(target["is_private"]) if "is_private" in target.keys() else False
+    if not is_private or target["id"] == me:
+        return
+    if target["id"] not in following_ids(conn, me):
+        raise HTTPException(403, "Compte privé — abonne-toi pour voir")
 
 
 # ---------- Feed social ----------
@@ -489,7 +545,7 @@ def discover(user: dict = Depends(current_user)):
             FROM events e
             JOIN photos p ON p.event_id = e.id
             JOIN users u ON u.id = e.user_id
-            WHERE e.visibility = 'public'
+            WHERE e.visibility = 'public' AND u.is_private = 0
             ORDER BY same_city DESC, e.date DESC, COALESCE(e.start_time, '99:99') DESC, e.id DESC
             LIMIT 100
             """,
@@ -510,12 +566,8 @@ def react(event_id: int, body: ReactionIn, user: dict = Depends(current_user)):
     if body.emoji not in REACTION_EMOJIS:
         raise HTTPException(400, f"emoji must be one of {REACTION_EMOJIS}")
     with get_conn() as conn:
+        _can_see_event(conn, event_id, user["id"])
         evt = conn.execute("SELECT user_id, visibility FROM events WHERE id = ?", (event_id,)).fetchone()
-        if evt is None:
-            raise HTTPException(404, "event not found")
-        allowed = evt["visibility"] == "public" or evt["user_id"] in [user["id"], *friend_ids(conn, user["id"])]
-        if not allowed:
-            raise HTTPException(403, "Réservé aux amis")
         existing = conn.execute(
             "SELECT id, emoji FROM likes WHERE user_id = ? AND event_id = ?", (user["id"], event_id)
         ).fetchone()
@@ -545,14 +597,18 @@ def react(event_id: int, body: ReactionIn, user: dict = Depends(current_user)):
 # ---------- Commentaires ----------
 
 def _can_see_event(conn, event_id: int, user_id: int):
-    """L'event existe et est visible (à moi, à un ami, ou public) -> row, sinon 404/403."""
+    """L'event existe et est visible -> row, sinon 404/403.
+    Visible si : c'est le mien, OU je suis abonné à l'auteur, OU l'event est
+    public ET l'auteur n'est pas un compte privé."""
     evt = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
     if evt is None:
         raise HTTPException(404, "event not found")
-    is_public = evt["visibility"] == "public"
-    if not is_public and evt["user_id"] not in [user_id, *friend_ids(conn, user_id)]:
-        raise HTTPException(403, "Réservé aux amis")
-    return evt
+    if evt["user_id"] == user_id or evt["user_id"] in following_ids(conn, user_id):
+        return evt
+    author = conn.execute("SELECT is_private FROM users WHERE id = ?", (evt["user_id"],)).fetchone()
+    if evt["visibility"] == "public" and author and not author["is_private"]:
+        return evt
+    raise HTTPException(403, "Réservé aux abonnés")
 
 
 @app.get("/api/events/{event_id}/reactions")
@@ -624,35 +680,36 @@ def delete_comment(comment_id: int, user: dict = Depends(current_user)):
 
 @app.get("/api/users/{username}")
 def user_profile(username: str, user: dict = Depends(current_user)):
-    """Page profil d'un utilisateur : infos + ses moments que J'AI le droit de voir."""
+    """Page profil d'un utilisateur : infos, compteurs, état d'abonnement,
+    et ses moments que J'AI le droit de voir."""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, username, display_name, emoji, city, created_at FROM users WHERE username = ?",
-            (username.lower().strip(),),
+            "SELECT * FROM users WHERE username = ?", (username.lower().strip(),)
         ).fetchone()
         if row is None:
             raise HTTPException(404, "utilisateur introuvable")
         target = dict(row)
         is_me = target["id"] == user["id"]
-        is_friend = target["id"] in friend_ids(conn, user["id"])
+        i_follow = target["id"] in following_ids(conn, user["id"])
+        is_private = bool(target.get("is_private", 0))
+        locked = is_private and not is_me and not i_follow
 
-        # Moments visibles : tous si moi/ami, sinon publics uniquement
-        if is_me or is_friend:
-            vis_clause, params = "", []
+        if locked:
+            rows = []
         else:
-            vis_clause, params = "AND e.visibility = 'public'", []
-        rows = conn.execute(
-            f"""
-            SELECT DISTINCT e.*, u.username, u.display_name, u.emoji
-            FROM events e
-            JOIN photos p ON p.event_id = e.id
-            JOIN users u ON u.id = e.user_id
-            WHERE e.user_id = ? {vis_clause}
-            ORDER BY e.date DESC, COALESCE(e.start_time, '99:99') DESC, e.id DESC
-            LIMIT 60
-            """,
-            [target["id"], *params],
-        ).fetchall()
+            vis_clause = "" if (is_me or i_follow) else "AND e.visibility = 'public'"
+            rows = conn.execute(
+                f"""
+                SELECT DISTINCT e.*, u.username, u.display_name, u.emoji
+                FROM events e
+                JOIN photos p ON p.event_id = e.id
+                JOIN users u ON u.id = e.user_id
+                WHERE e.user_id = ? {vis_clause}
+                ORDER BY e.date DESC, COALESCE(e.start_time, '99:99') DESC, e.id DESC
+                LIMIT 60
+                """,
+                (target["id"],),
+            ).fetchall()
         moments = _enrich_moments(conn, rows, user["id"])
         stats = conn.execute(
             "SELECT COUNT(DISTINCT p.id) AS photos, COUNT(DISTINCT e.date) AS days "
@@ -665,7 +722,12 @@ def user_profile(username: str, user: dict = Depends(current_user)):
             "emoji": target["emoji"],
             "city": target["city"],
             "is_me": is_me,
-            "is_friend": is_friend,
+            "is_private": is_private,
+            "locked": locked,
+            "follow_state": _follow_state(conn, user["id"], target["id"]),
+            "follows_me": user["id"] in following_ids(conn, target["id"]),
+            "followers": len(follower_ids(conn, target["id"])),
+            "following": len(following_ids(conn, target["id"])),
             "photos": stats["photos"],
             "days": stats["days"],
             "moments": moments,
@@ -677,10 +739,10 @@ def context_detail(kind: str, title: str, user: dict = Depends(current_user)):
     """Page d'une fiche (film/série/livre/match/lieu) : notes des utilisateurs
     + moments visibles qui en parlent."""
     with get_conn() as conn:
-        my_circle = set(friend_ids(conn, user["id"]) + [user["id"]])
+        my_circle = set(following_ids(conn, user["id"]) + [user["id"]])
         rows = conn.execute(
             """
-            SELECT DISTINCT e.*, u.username, u.display_name, u.emoji
+            SELECT DISTINCT e.*, u.username, u.display_name, u.emoji, u.is_private
             FROM events e
             JOIN photos p ON p.event_id = e.id
             JOIN users u ON u.id = e.user_id
@@ -697,7 +759,7 @@ def context_detail(kind: str, title: str, user: dict = Depends(current_user)):
                 continue
             if ctx.get("kind") != kind or (ctx.get("title") or "").lower() != title.lower():
                 continue
-            if r["user_id"] not in my_circle and r["visibility"] != "public":
+            if r["user_id"] not in my_circle and (r["visibility"] != "public" or r["is_private"]):
                 continue
             matching.append((r, ctx))
         if not matching:
@@ -928,7 +990,7 @@ def recap(user: dict = Depends(current_user)):
             "days_captured": len(captured_days),
             "reactions_received": total_reactions,
             "comments_received": comments_received,
-            "friends": len(friend_ids(conn, user["id"])),
+            "friends": len(follower_ids(conn, user["id"])),  # abonnés
             "max_streak": _max_streak(captured_days),
             "first_capture": min(captured_days) if captured_days else None,
             "heatmap": {"start": start.isoformat(), "end": today.isoformat(), "days": per_day},

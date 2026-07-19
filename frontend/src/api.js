@@ -71,10 +71,12 @@ export const api = {
   discover: () => request('/api/discover'),
   react: (eventId, emoji) => jsonPost(`/api/events/${eventId}/react`, { emoji }),
   eventReactions: (eventId) => request(`/api/events/${eventId}/reactions`),
-  friends: () => request('/api/friends'),
-  sendFriendRequest: (username) => jsonPost('/api/friends/request', { username }),
-  respondFriendRequest: (requestId, accept) =>
-    jsonPost('/api/friends/respond', { request_id: requestId, accept }),
+  follow: (username) => jsonPost(`/api/users/${encodeURIComponent(username)}/follow`, {}),
+  followRequests: () => request('/api/follow/requests'),
+  respondFollowRequest: (requestId, accept) =>
+    jsonPost('/api/follow/respond', { request_id: requestId, accept }),
+  followers: (username) => request(`/api/users/${encodeURIComponent(username)}/followers`),
+  following: (username) => request(`/api/users/${encodeURIComponent(username)}/following`),
 
   // --- Commentaires ---
   comments: (eventId) => request(`/api/events/${eventId}/comments`),

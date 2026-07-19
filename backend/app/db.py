@@ -108,6 +108,20 @@ def init_db() -> None:
         # Phase 4 : fiche contextuelle (film/livre/match/lieu + notes) en JSON
         if "context" not in cols("events"):
             conn.execute("ALTER TABLE events ADD COLUMN context TEXT NOT NULL DEFAULT ''")
+        # Phase 5 : compte privé (les abonnements demandent une approbation)
+        if "is_private" not in cols("users"):
+            conn.execute("ALTER TABLE users ADD COLUMN is_private INTEGER NOT NULL DEFAULT 0")
+        # Phase 5 : friendships devient une table de FOLLOWS directionnels
+        # (requester = abonné, addressee = suivi). Les amitiés acceptées de
+        # l'ancien modèle deviennent des abonnements mutuels — on insère la
+        # ligne inverse manquante (idempotent).
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO friendships (requester_id, addressee_id, status)
+            SELECT addressee_id, requester_id, 'accepted'
+            FROM friendships WHERE status = 'accepted'
+            """
+        )
 
 
 def row_to_event(row: sqlite3.Row, photos: list[dict] | None = None) -> dict:
@@ -171,14 +185,32 @@ def notify(conn: sqlite3.Connection, user_id: int, actor_id: int,
     )
 
 
-def friend_ids(conn: sqlite3.Connection, user_id: int) -> list[int]:
-    """IDs des amis acceptés de user_id."""
+def following_ids(conn: sqlite3.Connection, user_id: int) -> list[int]:
+    """IDs des comptes que user_id suit (abonnements acceptés)."""
     rows = conn.execute(
-        """
-        SELECT CASE WHEN requester_id = ? THEN addressee_id ELSE requester_id END AS fid
-        FROM friendships
-        WHERE (requester_id = ? OR addressee_id = ?) AND status = 'accepted'
-        """,
-        (user_id, user_id, user_id),
+        "SELECT addressee_id FROM friendships WHERE requester_id = ? AND status = 'accepted'",
+        (user_id,),
     ).fetchall()
-    return [r["fid"] for r in rows]
+    return [r["addressee_id"] for r in rows]
+
+
+def follower_ids(conn: sqlite3.Connection, user_id: int) -> list[int]:
+    """IDs des abonnés de user_id (acceptés)."""
+    rows = conn.execute(
+        "SELECT requester_id FROM friendships WHERE addressee_id = ? AND status = 'accepted'",
+        (user_id,),
+    ).fetchall()
+    return [r["requester_id"] for r in rows]
+
+
+# Alias legacy : partout où "amis" voulait dire "cercle visible", le cercle
+# est désormais les comptes que je SUIS.
+friend_ids = following_ids
+
+
+def can_view_user(conn: sqlite3.Connection, viewer_id: int, author_row) -> bool:
+    """Un viewer peut voir le contenu non-public d'un auteur s'il le suit.
+    Pour un compte privé, même le contenu 'public' est réservé aux abonnés."""
+    if author_row["id"] == viewer_id:
+        return True
+    return author_row["id"] in following_ids(conn, viewer_id)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import Icon from './Icon'
 
 // Page d'une fiche (film / série / livre / match / lieu) : la note de la
 // communauté Moments, la note de la source, et les moments qui en parlent.
@@ -61,7 +62,7 @@ export default function ContextSheet({ context, onClose, onOpenUser }) {
                 <img src={m.photos[0].url} alt="" loading="lazy" />
                 <div className="csheet-moment-info">
                   <button className="linklike" onClick={() => onOpenUser?.(m.author.username)}>
-                    {m.author.emoji} {m.author.is_me ? 'Toi' : m.author.display_name}
+                    <Icon emoji={m.author.emoji} size="16" /> {m.author.is_me ? 'Toi' : m.author.display_name}
                   </button>
                   {m.context?.my_rating && (
                     <span className="csheet-stars">
@@ -71,7 +72,7 @@ export default function ContextSheet({ context, onClose, onOpenUser }) {
                   <strong>{m.title}</strong>
                   {m.notes && <p>{m.notes}</p>}
                   <span className="muted">
-                    💬 {m.comments || 0} · {Object.values(m.reactions || {}).reduce((a, b) => a + b, 0)} réaction(s)
+                    <Icon emoji="💬" size="13" /> {m.comments || 0} · {Object.values(m.reactions || {}).reduce((a, b) => a + b, 0)} réaction(s)
                   </span>
                 </div>
               </article>

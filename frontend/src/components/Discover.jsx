@@ -4,6 +4,7 @@ import MomentCard from './MomentCard'
 import MomentViewer from './MomentViewer'
 import UserSheet from './UserSheet'
 import ContextSheet from './ContextSheet'
+import Icon from './Icon'
 
 export default function Discover() {
   const [data, setData] = useState(null)
@@ -52,7 +53,7 @@ export default function Discover() {
                 style={{ '--cat': meta.color }}
                 onClick={() => setCat(cat === c ? null : c)}
               >
-                {meta.emoji} {meta.label}
+                <Icon emoji={meta.emoji} size="15" /> {meta.label}
               </button>
             )
           })}
@@ -61,7 +62,7 @@ export default function Discover() {
 
       {data.moments.length === 0 ? (
         <div className="empty-state">
-          <span className="empty-emoji">🌍</span>
+          <Icon emoji="🌍" size="56" className="empty-emoji" />
           <h3>Rien à découvrir pour l'instant</h3>
           <p>
             Passe un de tes moments en <strong>public</strong> (dans le formulaire de création)
@@ -94,6 +95,7 @@ export default function Discover() {
           username={userSheet}
           onClose={() => setUserSheet(null)}
           onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
+          onOpenUser={(u) => setUserSheet(u)}
         />
       )}
       {ctxSheet && (

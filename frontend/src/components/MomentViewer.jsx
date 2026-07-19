@@ -3,6 +3,7 @@ import { CATEGORY_META, REACTION_EMOJIS, prettyDate, toISO } from '../api'
 import { useReaction } from '../useReaction'
 import Comments from './Comments'
 import ContextCard from './ContextCard'
+import Icon from './Icon'
 
 function dateLabel(iso) {
   const today = toISO(new Date())
@@ -44,7 +45,7 @@ function Slide({ moment }) {
 
       <div className="viewer-info">
         <div className="viewer-who">
-          <span className="viewer-avatar">{author.emoji}</span>
+          <span className="viewer-avatar"><Icon emoji={author.emoji} size="20" /></span>
           <div>
             <strong>{author.is_me ? 'Toi' : author.display_name}</strong>
             <span className="viewer-sub">
@@ -52,7 +53,7 @@ function Slide({ moment }) {
               {moment.start_time ? ` · ${moment.start_time}` : ''}
             </span>
           </div>
-          <span className="viewer-cat" style={{ '--cat': meta.color }}>{meta.emoji} {meta.label}</span>
+          <span className="viewer-cat" style={{ '--cat': meta.color }}><Icon emoji={meta.emoji} size="14" /> {meta.label}</span>
         </div>
 
         {tags.length > 0 && (
@@ -70,14 +71,14 @@ function Slide({ moment }) {
           className={`viewer-act ${myReaction ? 'on' : ''}`}
           onClick={() => setSheet(sheet === 'react' ? null : 'react')}
         >
-          <span>{myReaction || '🤍'}</span>
+          <Icon emoji={myReaction || '🤍'} size="26" />
           <small>{total > 0 ? total : ''}</small>
         </button>
         <button
           className={`viewer-act ${sheet === 'comments' ? 'on' : ''}`}
           onClick={() => setSheet(sheet === 'comments' ? null : 'comments')}
         >
-          <span>💬</span>
+          <Icon emoji="💬" size="26" />
           <small>{commentCount > 0 ? commentCount : ''}</small>
         </button>
       </div>
@@ -90,7 +91,7 @@ function Slide({ moment }) {
               className={myReaction === e ? 'chosen' : ''}
               onClick={() => { react(e); setSheet(null) }}
             >
-              {e}
+              <Icon emoji={e} size="32" />
             </button>
           ))}
         </div>

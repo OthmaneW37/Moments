@@ -71,7 +71,7 @@ function ReactionSheet({ moment, myReaction, onReact, onOpenUser }) {
               <span className="react-group-people">
                 {people.map((p, i) => (
                   <button key={p.username} className="linklike" onClick={() => onOpenUser?.(p.username)}>
-                    {p.emoji} {p.is_me ? 'Toi' : p.display_name}{i < people.length - 1 ? ' · ' : ''}
+                    <Icon emoji={p.emoji} size="16" /> {p.is_me ? 'Toi' : p.display_name}{i < people.length - 1 ? ' · ' : ''}
                   </button>
                 ))}
               </span>
@@ -139,7 +139,7 @@ function Slide({ moment, onOpenUser, onOpenContext }) {
           className={`ifeed-act ${sheet === 'comments' ? 'on' : ''}`}
           onClick={() => setSheet(sheet === 'comments' ? null : 'comments')}
         >
-          <span>💬</span>
+          <Icon emoji="💬" size="26" />
           <small>{commentCount > 0 ? commentCount : ''}</small>
         </button>
         {multi && <span className="ifeed-multi">▦ {moment.photos.length}</span>}
@@ -149,7 +149,7 @@ function Slide({ moment, onOpenUser, onOpenContext }) {
       <div className="ifeed-caption">
         <div className="ifeed-who">
           <button className="ifeed-avatar" onClick={() => onOpenUser?.(author.username)}>
-            {author.emoji}
+            <Icon emoji={author.emoji} size="24" />
           </button>
           <button className="ifeed-name" onClick={() => onOpenUser?.(author.username)}>
             <strong>{author.is_me ? 'Toi' : author.display_name}</strong>

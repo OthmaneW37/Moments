@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import Icon from './Icon'
 
 function timeAgo(sqlDate) {
   if (!sqlDate) return ''
@@ -46,7 +47,7 @@ export default function Comments({ eventId, onCountChange, onOpenUser }) {
   return (
     <div className="comments">
       <header className="comments-head">
-        💬 {comments.length === 0 ? 'Sois le premier à commenter' : `${comments.length} commentaire${comments.length > 1 ? 's' : ''}`}
+        <Icon emoji="💬" size="16" /> {comments.length === 0 ? 'Sois le premier à commenter' : `${comments.length} commentaire${comments.length > 1 ? 's' : ''}`}
       </header>
 
       <div className="comments-list">
@@ -57,7 +58,7 @@ export default function Comments({ eventId, onCountChange, onOpenUser }) {
               onClick={() => onOpenUser?.(c.username)}
               aria-label={`Profil de ${c.display_name}`}
             >
-              {c.emoji}
+              <Icon emoji={c.emoji} size="18" />
             </button>
             <div className="comment-body">
               <span className="comment-meta">

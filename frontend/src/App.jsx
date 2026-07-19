@@ -10,6 +10,8 @@ import Notifications from './components/Notifications'
 import Profile from './components/Profile'
 import Recap from './components/Recap'
 import Timeline from './components/Timeline'
+import Icon from './components/Icon'
+import UserSheet from './components/UserSheet'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -23,6 +25,7 @@ export default function App() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [notifs, setNotifs] = useState(null)
+  const [userSheet, setUserSheet] = useState(null) // profil ouvert depuis Profil/Notifs
 
   useEffect(() => {
     if (!getToken()) { setAuthChecked(true); return }
@@ -88,7 +91,7 @@ export default function App() {
     <div className="phone">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-logo">📸</span>
+          <Icon emoji="📸" size="26" className="brand-logo" />
           <span className="brand-name">Moments</span>
         </div>
         <div className="topbar-actions">
@@ -97,11 +100,11 @@ export default function App() {
             onClick={() => setView('notifs')}
             aria-label="Notifications"
           >
-            🔔
+            <Icon emoji="🔔" size="22" />
             {unread > 0 && <span className="bell-badge">{unread > 9 ? '9+' : unread}</span>}
           </button>
           <button className="topbar-user" onClick={() => setView('profile')}>
-            {user.emoji}
+            <Icon emoji={user.emoji} size="24" />
           </button>
         </div>
       </header>
@@ -177,6 +180,7 @@ export default function App() {
             user={user}
             onUserChange={setUser}
             onOpenRecap={() => setView('recap')}
+            onOpenUser={setUserSheet}
             onLogout={() => { setUser(null); setView('feed') }}
           />
         )}
@@ -186,22 +190,22 @@ export default function App() {
 
       <nav className="bottom-nav">
         <button className={`nav-item ${view === 'feed' ? 'active' : ''}`} onClick={() => setView('feed')}>
-          <span className="nav-icon">🫂</span>
+          <Icon emoji="🫂" size="24" className="nav-icon" />
           <span className="nav-label">Feed</span>
         </button>
         <button className={`nav-item ${view === 'discover' ? 'active' : ''}`} onClick={() => setView('discover')}>
-          <span className="nav-icon">🌍</span>
+          <Icon emoji="🌍" size="24" className="nav-icon" />
           <span className="nav-label">Découverte</span>
         </button>
 
         <button className="fab" onClick={openNewMoment} aria-label="Nouveau moment">＋</button>
 
         <button className={`nav-item ${view === 'day' ? 'active' : ''}`} onClick={() => setView('day')}>
-          <span className="nav-icon">🗓️</span>
+          <Icon emoji="🗓️" size="24" className="nav-icon" />
           <span className="nav-label">Agenda</span>
         </button>
         <button className={`nav-item ${view === 'profile' || view === 'recap' ? 'active' : ''}`} onClick={() => setView('profile')}>
-          <span className="nav-icon">👤</span>
+          <Icon emoji="👤" size="24" className="nav-icon" />
           <span className="nav-label">Profil</span>
         </button>
       </nav>
@@ -212,6 +216,14 @@ export default function App() {
           initial={editing}
           onSave={handleSave}
           onCancel={() => { setFormOpen(false); setEditing(null) }}
+        />
+      )}
+
+      {userSheet && (
+        <UserSheet
+          username={userSheet}
+          onClose={() => setUserSheet(null)}
+          onOpenUser={setUserSheet}
         />
       )}
     </div>
