@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, CATEGORY_META, setToken } from '../api'
+import { toast } from '../toast'
 import Icon from './Icon'
 
 export default function Profile({ user, onLogout, onUserChange, onOpenRecap, onOpenUser }) {
@@ -25,10 +26,15 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap, onO
 
   async function handleSaveCity(e) {
     e.preventDefault()
-    const updated = await api.updateProfile({ city: city.trim() })
-    setCitySaved(true)
-    setTimeout(() => setCitySaved(false), 2000)
-    onUserChange?.(updated)
+    try {
+      const updated = await api.updateProfile({ city: city.trim() })
+      setCitySaved(true)
+      setTimeout(() => setCitySaved(false), 2000)
+      onUserChange?.(updated)
+      toast.success('Ville mise à jour')
+    } catch {
+      toast.error('Impossible d\'enregistrer, réessaie')
+    }
   }
 
   async function handleTogglePrivate() {
@@ -38,8 +44,10 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap, onO
       const updated = await api.updateProfile({ is_private: next })
       onUserChange?.(updated)
       refresh() // en repassant en public, les demandes en attente sont acceptées
+      toast.success(next ? '🔒 Ton compte est désormais privé' : '🌍 Ton compte est désormais public')
     } catch {
       setIsPrivate(!next)
+      toast.error('Changement impossible, réessaie')
     }
   }
 
@@ -66,8 +74,16 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap, onO
   }
 
   async function handleRespond(requestId, accept) {
-    await api.respondFollowRequest(requestId, accept)
-    refresh()
+    // Optimiste : la demande disparaît tout de suite de la liste
+    setRequests((rs) => rs.filter((r) => r.request_id !== requestId))
+    try {
+      await api.respondFollowRequest(requestId, accept)
+      toast.success(accept ? 'Demande acceptée 🤝' : 'Demande refusée')
+      refresh()
+    } catch {
+      toast.error('Action impossible, réessaie')
+      refresh()
+    }
   }
 
   async function openPeople(kind) {

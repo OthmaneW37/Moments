@@ -16,6 +16,8 @@ import UserSheet from './components/UserSheet'
 import Messages from './components/Messages'
 import SearchUsers from './components/SearchUsers'
 import SharedMoment from './components/SharedMoment'
+import ToastHost from './components/ToastHost'
+import { toast } from './toast'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -91,6 +93,7 @@ export default function App() {
     setDate(toISO(new Date()))
     setFeedNonce((n) => n + 1)
     setView('feed')
+    toast.success('Moment publié ✨')
   }
 
   // Page publique de partage — court-circuite l'auth
@@ -106,6 +109,7 @@ export default function App() {
     return (
       <div className="phone">
         <AuthScreen onAuthed={(u) => { setUser(u); setView('feed') }} />
+        <ToastHost />
       </div>
     )
   }
@@ -283,6 +287,8 @@ export default function App() {
       {capturing && (
         <NewMoment onDone={handleMomentPosted} onCancel={() => setCapturing(false)} />
       )}
+
+      <ToastHost />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, CATEGORY_META, mediaUrl, prettyDate } from '../api'
 import Memories from './Memories'
+import { CardsSkeleton } from './Skeletons'
 
 export default function Timeline() {
   const [days, setDays] = useState(null)
@@ -9,7 +10,7 @@ export default function Timeline() {
     api.timeline().then(setDays).catch(() => setDays([]))
   }, [])
 
-  if (days === null) return <p className="muted center">Chargement…</p>
+  if (days === null) return <CardsSkeleton count={3} />
 
   if (days.length === 0) {
     return (

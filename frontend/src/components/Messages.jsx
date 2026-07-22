@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { toast } from '../toast'
 import Icon from './Icon'
+import { ListSkeleton } from './Skeletons'
 
 function timeAgo(sqlDate) {
   if (!sqlDate) return ''
@@ -42,6 +44,9 @@ function Thread({ username, onBack, onOpenUser }) {
     try {
       const m = await api.sendMessage(username, body)
       setData((d) => ({ ...d, messages: [...d.messages, m] }))
+    } catch {
+      setText(body) // on rend le message pour qu'il ne soit pas perdu
+      toast.error('Message non envoyé, réessaie')
     } finally {
       setSending(false)
     }
@@ -105,7 +110,7 @@ export default function Messages({ openWith, onConsumeOpen, onOpenUser }) {
   return (
     <div className="messages">
       <h1 className="page-title">Messages</h1>
-      {convs === null && <p className="muted center">Chargement…</p>}
+      {convs === null && <ListSkeleton count={5} />}
       {convs?.length === 0 && (
         <div className="empty-state">
           <Icon name="message" size="56" className="empty-emoji" />

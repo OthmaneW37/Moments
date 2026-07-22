@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { toast } from '../toast'
 import Icon from './Icon'
 
 function timeAgo(sqlDate) {
@@ -31,18 +32,34 @@ export default function Comments({ eventId, onCountChange, onOpenUser }) {
       setComments((cs) => [...cs, c])
       setText('')
       onCountChange(1)
+    } catch {
+      toast.error('Commentaire non publié, réessaie')
     } finally {
       setSending(false)
     }
   }
 
   async function handleDelete(id) {
-    await api.deleteComment(id)
-    setComments((cs) => cs.filter((c) => c.id !== id))
+    const prev = comments
+    setComments((cs) => cs.filter((c) => c.id !== id)) // optimiste
     onCountChange(-1)
+    try {
+      await api.deleteComment(id)
+    } catch {
+      setComments(prev) // rollback
+      onCountChange(1)
+      toast.error('Suppression impossible')
+    }
   }
 
-  if (comments === null) return <p className="muted comment-loading">…</p>
+  if (comments === null) {
+    return (
+      <div className="comments-loading">
+        <span className="sk sk-line" style={{ width: '60%' }} />
+        <span className="sk sk-line" style={{ width: '80%' }} />
+      </div>
+    )
+  }
 
   return (
     <div className="comments">

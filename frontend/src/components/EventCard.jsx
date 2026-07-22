@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react'
 import { api, CATEGORY_META } from '../api'
+import { toast } from '../toast'
 import Media from './Media'
+import ConfirmDialog from './ConfirmDialog'
 
 export default function EventCard({ event, onChanged, onEdit }) {
   const fileRef = useRef(null)
   const [uploading, setUploading] = useState(false)
+  const [confirm, setConfirm] = useState(null) // { title, message, onConfirm } | null
   const meta = CATEGORY_META[event.category] ?? CATEGORY_META.autre
   const hasPhotos = event.photos.length > 0
 
@@ -15,24 +18,47 @@ export default function EventCard({ event, onChanged, onEdit }) {
     try {
       for (const file of files) await api.uploadPhoto(event.id, file)
       onChanged()
+      toast.success(files.length > 1 ? `${files.length} médias ajoutés` : 'Souvenir capturé ✨')
     } catch (err) {
-      alert(`Upload impossible : ${err.message}`)
+      toast.error(`Envoi impossible : ${err.message}`)
     } finally {
       setUploading(false)
       e.target.value = ''
     }
   }
 
-  async function handleDeletePhoto(photoId) {
-    if (!confirm('Supprimer ce média ?')) return
-    await api.deletePhoto(photoId)
-    onChanged()
+  function handleDeletePhoto(photoId) {
+    setConfirm({
+      title: 'Supprimer ce média ?',
+      message: 'Cette action est définitive.',
+      onConfirm: async () => {
+        setConfirm(null)
+        try {
+          await api.deletePhoto(photoId)
+          onChanged()
+          toast.success('Média supprimé')
+        } catch {
+          toast.error('Suppression impossible')
+        }
+      },
+    })
   }
 
-  async function handleDeleteEvent() {
-    if (!confirm(`Supprimer « ${event.title} » ?`)) return
-    await api.deleteEvent(event.id)
-    onChanged()
+  function handleDeleteEvent() {
+    setConfirm({
+      title: `Supprimer « ${event.title} » ?`,
+      message: 'Le moment et ses photos seront définitivement supprimés.',
+      onConfirm: async () => {
+        setConfirm(null)
+        try {
+          await api.deleteEvent(event.id)
+          onChanged()
+          toast.success('Moment supprimé')
+        } catch {
+          toast.error('Suppression impossible')
+        }
+      },
+    })
   }
 
   const time =
@@ -82,6 +108,16 @@ export default function EventCard({ event, onChanged, onEdit }) {
         multiple
         hidden
         onChange={handleFiles}
+      />
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.title}
+        message={confirm?.message}
+        confirmLabel="Supprimer"
+        danger
+        onConfirm={() => confirm?.onConfirm()}
+        onCancel={() => setConfirm(null)}
       />
     </div>
   )

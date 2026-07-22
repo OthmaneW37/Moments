@@ -5,6 +5,7 @@ import MomentViewer from './MomentViewer'
 import UserSheet from './UserSheet'
 import ContextSheet from './ContextSheet'
 import Icon from './Icon'
+import { GridSkeleton } from './Skeletons'
 
 export default function Discover({ onMessage }) {
   const [data, setData] = useState(null)
@@ -23,7 +24,7 @@ export default function Discover({ onMessage }) {
     return [...new Set(data.moments.map((m) => m.category))]
   }, [data])
 
-  if (data === null) return <p className="muted center">Chargement…</p>
+  if (data === null) return <GridSkeleton count={6} />
 
   const shown = cat ? data.moments.filter((m) => m.category === cat) : data.moments
 

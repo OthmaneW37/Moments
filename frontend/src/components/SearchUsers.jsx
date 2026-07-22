@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { toast } from '../toast'
 import Icon from './Icon'
+import { ListSkeleton } from './Skeletons'
 
 const FOLLOW_LABEL = { none: "S'abonner", pending: 'Demandé', following: 'Abonné' }
 
@@ -28,8 +30,17 @@ export default function SearchUsers({ onOpenUser }) {
   }, [q])
 
   async function toggleFollow(u) {
-    const r = await api.follow(u.username)
-    setResults((rs) => rs.map((x) => x.username === u.username ? { ...x, follow_state: r.state } : x))
+    // Optimiste : le bouton réagit immédiatement
+    const optimistic = u.follow_state === 'none' ? (u.is_private ? 'pending' : 'following') : 'none'
+    setResults((rs) => rs.map((x) => x.username === u.username ? { ...x, follow_state: optimistic } : x))
+    try {
+      const r = await api.follow(u.username)
+      setResults((rs) => rs.map((x) => x.username === u.username ? { ...x, follow_state: r.state } : x))
+      if (r.state === 'pending') toast.success('Demande d\'abonnement envoyée')
+    } catch {
+      setResults((rs) => rs.map((x) => x.username === u.username ? { ...x, follow_state: u.follow_state } : x))
+      toast.error('Action impossible, réessaie')
+    }
   }
 
   return (
@@ -46,7 +57,7 @@ export default function SearchUsers({ onOpenUser }) {
         {q && <button className="search-clear" onClick={() => setQ('')}>×</button>}
       </div>
 
-      {loading && <p className="muted center">Recherche…</p>}
+      {loading && results.length === 0 && <ListSkeleton count={4} />}
 
       {!loading && q.trim() && results.length === 0 && (
         <p className="muted center">Aucun compte trouvé pour « {q} ».</p>

@@ -1440,3 +1440,100 @@ button { font-family: inherit; color: inherit; }
   padding: 8px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.85rem;
 }
 .seg-toggle button.active { background: var(--ink); color: var(--paper); }
+
+/* =====================================================================
+   Feedback produit : toasts, skeletons, confirm, micro-UX
+   ===================================================================== */
+
+/* ---- Toasts ---- */
+.toast-host {
+  position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 0; right: 0;
+  z-index: 200; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 0 14px; pointer-events: none;
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px;
+  max-width: 440px; width: fit-content; padding: 11px 15px;
+  background: var(--ink); color: #fdf9f1; border: 0; border-radius: 999px;
+  font-size: 0.9rem; font-weight: 600; font-family: inherit; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(38, 30, 18, 0.28);
+  animation: toast-in 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes toast-in {
+  from { transform: translateY(-16px) scale(0.96); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.toast-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; font-size: 0.72rem; font-weight: 800;
+  flex-shrink: 0;
+}
+.toast--success .toast-icon { background: #3f8f4f; color: #fff; }
+.toast--error   .toast-icon { background: var(--danger); color: #fff; }
+.toast--info    .toast-icon { background: var(--accent); color: #fff; }
+.toast-msg { line-height: 1.3; }
+.toast-action {
+  margin-left: 4px; padding-left: 12px; border-left: 1px solid rgba(253,249,241,0.25);
+  color: #ffd9c2; font-weight: 700; white-space: nowrap;
+}
+
+/* ---- Skeletons ---- */
+@keyframes shimmer { to { background-position: -200% 0; } }
+.sk {
+  background: linear-gradient(100deg, var(--surface-2) 30%, #f0e9dc 50%, var(--surface-2) 70%);
+  background-size: 200% 100%; animation: shimmer 1.3s ease-in-out infinite;
+  border-radius: 8px;
+}
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+/* Feed immersif : un grand bloc plein écran */
+.sk-feed { height: 100%; min-height: 72dvh; display: flex; flex-direction: column;
+  justify-content: flex-end; gap: 12px; padding: 20px; background: var(--surface-2); }
+.sk-feed .sk { background-color: #ece4d4; }
+.sk-line { height: 13px; border-radius: 6px; }
+
+/* Grille (Discover / profil) */
+.sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px; }
+.sk-tile { aspect-ratio: 4 / 5; border-radius: 14px; }
+
+/* Listes (messages / notifications / commentaires) */
+.sk-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; }
+.sk-row { display: flex; align-items: center; gap: 12px; }
+.sk-avatar { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; }
+.sk-row-lines { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+
+/* Skeletons "cartes souvenir" (timeline) */
+.sk-card { border-radius: 16px; height: 220px; margin: 0 16px 14px; }
+
+/* ---- Confirm dialog ---- */
+.confirm-box {
+  background: var(--paper); border-radius: 18px; width: 100%; max-width: 360px;
+  margin: auto; padding: 22px; display: flex; flex-direction: column; gap: 8px;
+  animation: pop-in 0.16s ease-out; text-align: center;
+}
+@keyframes pop-in { from { transform: scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.confirm-box h3 { margin: 0; font-family: var(--font-display); font-size: 1.2rem; }
+.confirm-box p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.confirm-actions { display: flex; gap: 10px; margin-top: 12px; }
+.confirm-actions .btn { flex: 1; }
+.btn.danger { background: var(--danger); color: #fff; border: 0; }
+.btn.danger:active { background: #8f1e17; }
+.confirm-backdrop { align-items: center; }
+
+/* ---- Micro-UX : feedback tactile & états ---- */
+.btn { transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease; }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cat-chip, .vis-chip, .filter-chip, .reaction-opt, .nav-item, .ifeed-act,
+.conv-row, .search-row-main, .people-row, .notif-row {
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+.cat-chip:active, .vis-chip:active, .ifeed-act:active, .reaction-opt:active { transform: scale(0.94); }
+.conv-row:active, .notif-row:active, .people-row:active, .search-row-main:active { transform: scale(0.99); }
+
+/* Bouton "réessayer" des états d'erreur */
+.error-state { display: flex; flex-direction: column; align-items: center; gap: 12px;
+  text-align: center; padding: 40px 24px; }
+.error-state p { color: var(--muted); margin: 0; max-width: 260px; }
+
+.comments-loading { display: flex; flex-direction: column; gap: 8px; padding: 14px 4px; }

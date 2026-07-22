@@ -1,20 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import ImmersiveFeed from './ImmersiveFeed'
 import UserSheet from './UserSheet'
 import ContextSheet from './ContextSheet'
 import Icon from './Icon'
+import { FeedSkeleton } from './Skeletons'
+import ErrorState from './ErrorState'
 
 export default function Feed({ onMessage }) {
   const [moments, setMoments] = useState(null)
+  const [error, setError] = useState(false)
   const [userSheet, setUserSheet] = useState(null)   // username | null
   const [ctxSheet, setCtxSheet] = useState(null)     // context | null
 
-  useEffect(() => {
-    api.feed().then(setMoments).catch(() => setMoments([]))
+  const load = useCallback(() => {
+    setError(false)
+    api.feed().then(setMoments).catch(() => setError(true))
   }, [])
 
-  if (moments === null) return <p className="muted center ifeed-empty">Chargement…</p>
+  useEffect(load, [load])
+
+  if (error) return <ErrorState message="Impossible de charger ton feed." onRetry={load} />
+  if (moments === null) return <FeedSkeleton />
 
   if (moments.length === 0) {
     return (

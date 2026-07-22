@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api, CATEGORY_META } from '../api'
+import { toast } from '../toast'
 import Icon from './Icon'
 import Media from './Media'
+import { GridSkeleton } from './Skeletons'
+import ErrorState from './ErrorState'
 
 const FOLLOW_LABEL = { none: "S'abonner", pending: 'Demandé', following: 'Abonné' }
 
@@ -33,7 +36,10 @@ export default function UserSheet({ username, onClose, onOpenContext, onOpenUser
       const r = await api.follow(username)
       setData((d) => ({ ...d, follow_state: r.state, followers: r.followers,
                         locked: d.is_private && !d.is_me && r.state !== 'following' }))
+      if (r.state === 'pending') toast.success('Demande d\'abonnement envoyée')
       if (data && (data.follow_state === 'none') !== (r.state === 'none')) load()
+    } catch {
+      toast.error('Action impossible, réessaie')
     } finally {
       setBusy(false)
     }
@@ -55,8 +61,19 @@ export default function UserSheet({ username, onClose, onOpenContext, onOpenUser
         <span className="page-sheet-title">@{username}</span>
       </header>
 
-      {error && <p className="muted center">Profil introuvable.</p>}
-      {!data && !error && <p className="muted center">Chargement…</p>}
+      {error && <ErrorState message="Profil introuvable." onRetry={() => { setError(false); load() }} />}
+      {!data && !error && (
+        <div className="usheet">
+          <div className="usheet-hero">
+            <span className="sk sk-avatar" style={{ width: 56, height: 56 }} />
+            <div className="sk-row-lines" style={{ flex: 1 }}>
+              <span className="sk sk-line" style={{ width: '50%' }} />
+              <span className="sk sk-line" style={{ width: '35%' }} />
+            </div>
+          </div>
+          <GridSkeleton count={4} />
+        </div>
+      )}
 
       {data && (
         <div className="usheet">

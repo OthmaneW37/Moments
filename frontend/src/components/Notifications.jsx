@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import Icon from './Icon'
+import { ListSkeleton } from './Skeletons'
 
 const NOTIF_TEXT = {
   follow: () => `s'est abonné à toi 🎉`,
@@ -30,7 +31,7 @@ export default function Notifications({ data, onSeen, goProfile, goFeed, goMessa
     if (data?.unread > 0) onSeen()
   }, [data, onSeen])
 
-  if (!data) return <p className="muted center">Chargement…</p>
+  if (!data) return <ListSkeleton count={6} />
 
   if (data.items.length === 0) {
     return (
