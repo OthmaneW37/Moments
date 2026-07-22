@@ -9,24 +9,48 @@ Deux grandes étapes : **(A) déployer le backend**, puis **(B) construire l'app
 
 ---
 
-## A. Déployer le backend en ligne (Render, gratuit)
+Le backend a un [`Dockerfile`](backend/Dockerfile) : il se déploie sur
+n'importe quelle plateforme (Fly.io, Railway, Koyeb, Render…). Choisis-en une.
 
-1. Va sur **https://render.com** et crée un compte (connecte ton GitHub).
-2. **New + → Blueprint**.
-3. Choisis le dépôt **`OthmaneW37/Moments`**. Render lit le fichier
-   [`render.yaml`](render.yaml) et propose le service **moments-api**.
-4. Clique **Apply**. Render installe les dépendances et lance l'API.
-5. Au bout de ~2 min, tu obtiens une URL du type
-   **`https://moments-api.onrender.com`**. Note-la.
-6. Vérifie que ça répond : ouvre `https://<ton-url>/api/categories` dans le
-   navigateur → tu dois voir une liste JSON.
+> ⚠️ **Stockage éphémère** (vrai sur tous les plans gratuits) : la base et les
+> photos sont réinitialisées quand le serveur redémarre / se met en veille.
+> Parfait pour tester. La base démarre **vide** → crée ton compte dans l'app.
+> Pour rendre les données permanentes, voir « Persistance » plus bas.
 
-> ⚠️ **Plan gratuit = stockage éphémère** : la base et les photos sont
-> réinitialisées à chaque redéploiement ou mise en veille (~15 min sans
-> trafic). Parfait pour tester. Pour garder les données : dans `render.yaml`,
-> décommente le bloc `disk` + `MOMENTS_DATA_DIR` (nécessite un plan payant).
->
-> La base démarre **vide** : crée ton compte directement depuis l'app.
+### Option 1 — Fly.io (Dockerfile, recommandé)
+
+Le point crucial : **lance la commande depuis le dossier `backend/`**, pas la
+racine du repo (sinon Fly ne trouve pas le Dockerfile → « Could not find a
+Dockerfile »).
+
+```bash
+cd backend
+fly launch            # détecte le Dockerfile, génère fly.toml. Réponds "No" au déploiement immédiat.
+fly secrets set MOMENTS_SECRET=$(openssl rand -hex 32)   # sessions stables
+fly deploy
+```
+
+À la fin, `fly deploy` (ou `fly open`) te donne l'URL, du type
+**`https://moments-xxxx.fly.dev`**. Note-la.
+
+### Option 2 — Railway
+
+1. **railway.app** → New Project → Deploy from GitHub → dépôt **Moments**.
+2. Dans le service : **Settings → Root Directory = `backend`**
+   (Railway détecte alors le Dockerfile).
+3. **Variables** : ajoute `MOMENTS_SECRET` (une longue chaîne aléatoire).
+4. **Settings → Networking → Generate Domain** pour obtenir l'URL publique.
+
+### Option 3 — Render (Blueprint)
+
+New + → Blueprint → dépôt **Moments** → Render lit [`render.yaml`](render.yaml)
+→ Apply. (Render peut demander une carte pour vérifier le compte, même en
+gratuit.)
+
+### Vérifie que ça marche
+
+Ouvre `https://<ton-url>/api/categories` dans le navigateur → tu dois voir une
+liste JSON. C'est bon, ton backend est en ligne. 🎉
 
 ---
 
@@ -99,3 +123,11 @@ pour tester sur ton propre appareil.)
   nécessitent que le *frontend* soit aussi hébergé en ligne. Optionnel —
   tu peux héberger `frontend/dist` sur Render (Static Site) ou Netlify et
   renseigner `VITE_PUBLIC_URL` dans `.env.production`.
+- **Persistance des données** (garder base + photos entre redémarrages) :
+  le backend écrit dans le dossier `MOMENTS_DATA_DIR` (défaut : racine de
+  l'app). Monte un volume et pointe cette variable dessus :
+  - **Fly.io** : `fly volumes create data --size 1`, puis dans `fly.toml`
+    ajoute `[mounts] source="data" destination="/data"` et
+    `[env] MOMENTS_DATA_DIR="/data"`.
+  - **Railway** : ajoute un Volume monté sur `/data` + variable
+    `MOMENTS_DATA_DIR=/data`.

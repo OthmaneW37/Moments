@@ -1,0 +1,8 @@
+# Ne pas embarquer l'environnement local ni les données dans l'image
+.venv/
+__pycache__/
+*.pyc
+moments.db
+uploads/
+secret.key
+*.log
