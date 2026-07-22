@@ -550,6 +550,24 @@ def feed(user: dict = Depends(current_user)):
         return _enrich_moments(conn, rows, user["id"])
 
 
+@app.get("/api/events/{event_id}/moment")
+def event_moment(event_id: int, user: dict = Depends(current_user)):
+    """Un moment enrichi par id — pour ouvrir directement depuis une notification."""
+    with get_conn() as conn:
+        _can_see_event(conn, event_id, user["id"])  # 404/403 selon visibilité
+        row = conn.execute(
+            """
+            SELECT e.*, u.username, u.display_name, u.emoji
+            FROM events e JOIN users u ON u.id = e.user_id WHERE e.id = ?
+            """,
+            (event_id,),
+        ).fetchone()
+        moments = _enrich_moments(conn, [row], user["id"])
+        if not moments or not moments[0]["photos"]:
+            raise HTTPException(404, "Ce moment n'a plus de média")
+        return moments[0]
+
+
 @app.get("/api/discover")
 def discover(user: dict = Depends(current_user)):
     """Moments PUBLICS des autres — en priorité de ta ville, puis le reste."""
@@ -1285,7 +1303,7 @@ def week_summary(user: dict = Depends(current_user)):
     with get_conn() as conn:
         events = conn.execute(
             """
-            SELECT e.id, e.category, e.date,
+            SELECT e.id, e.category, e.date, e.start_time, e.title,
                    (SELECT COUNT(*) FROM photos p WHERE p.event_id = e.id) AS nphotos
             FROM events e
             WHERE e.user_id = ? AND e.date BETWEEN ? AND ?
@@ -1300,6 +1318,16 @@ def week_summary(user: dict = Depends(current_user)):
             """,
             (user["id"], start.isoformat(), today.isoformat()),
         ).fetchone()["n"]
+        # Moment le plus aimé de la semaine (pour l'insight)
+        top_moment = conn.execute(
+            """
+            SELECT e.title, COUNT(l.id) AS n FROM events e
+            JOIN likes l ON l.event_id = e.id
+            WHERE e.user_id = ? AND e.date BETWEEN ? AND ?
+            GROUP BY e.id ORDER BY n DESC LIMIT 1
+            """,
+            (user["id"], start.isoformat(), today.isoformat()),
+        ).fetchone()
 
     total = len(events)
     captured = sum(1 for e in events if e["nphotos"] > 0)
@@ -1326,11 +1354,15 @@ def week_summary(user: dict = Depends(current_user)):
         detail = f" Surtout du {CAT_LABEL.get(top_cat, 'moments')}." if top_cat else ""
         text = " · ".join(parts) + "." + detail
 
+    # ---- Insight : une seule phrase naturelle, choisie selon le signal le plus fort ----
+    insight = _week_insight(events, captured, active_days, cats, top_cat, reactions, top_moment)
+
     return {
         "start": start.isoformat(),
         "end": today.isoformat(),
         "headline": headline,
         "text": text,
+        "insight": insight,
         "total": total,
         "captured": captured,
         "photos": photos,
@@ -1338,3 +1370,55 @@ def week_summary(user: dict = Depends(current_user)):
         "reactions": reactions,
         "by_category": dict(cats),
     }
+
+
+def _part_of_day(hhmm: str | None) -> str | None:
+    if not hhmm:
+        return None
+    try:
+        h = int(hhmm[:2])
+    except ValueError:
+        return None
+    if h < 6:
+        return "nuit"
+    if h < 12:
+        return "matin"
+    if h < 18:
+        return "après-midi"
+    return "soirée"
+
+
+def _week_insight(events, captured, active_days, cats, top_cat, reactions, top_moment) -> str:
+    """Une phrase d'insight naturelle basée sur le pattern le plus marquant."""
+    if captured == 0:
+        return "Tu n'as encore rien capturé cette semaine — un petit moment aujourd'hui ?"
+
+    # 1) Un moment se détache par les réactions
+    if top_moment and top_moment["n"] >= 2:
+        return f"Ton moment le plus aimé cette semaine : « {top_moment['title']} »."
+
+    # 2) Une catégorie domine nettement
+    if top_cat and cats[top_cat] >= 3 and cats[top_cat] / max(sum(cats.values()), 1) >= 0.5:
+        phr = {
+            "sport": "Le sport a rythmé ta semaine 🏟️", "cafe": "Beaucoup de cafés cette semaine ☕",
+            "cinema": "Semaine très ciné 🎬", "sortie": "Tu es beaucoup sorti·e cette semaine 🌆",
+            "etude": "Une semaine studieuse 📚", "repas": "Semaine gourmande 🍽️",
+            "video": "Semaine cocooning devant un écran 📺", "livre": "Tu as beaucoup lu cette semaine 📖",
+        }
+        return phr.get(top_cat, f"Surtout du {CAT_LABEL.get(top_cat, 'moments')} cette semaine.")
+
+    # 3) Régularité
+    if active_days >= 4:
+        return f"{active_days} jours avec un moment capturé — belle régularité ✨"
+
+    # 4) Pattern horaire (quand tu captures)
+    moments_pod = [_part_of_day(e["start_time"]) for e in events if e["nphotos"] > 0]
+    pod = Counter(p for p in moments_pod if p)
+    if pod and pod.most_common(1)[0][1] >= 2:
+        best = pod.most_common(1)[0][0]
+        return f"Tu captures surtout tes moments en {best}."
+
+    # 5) Fallback chaleureux
+    if reactions >= 3:
+        return f"Tes moments ont récolté {reactions} réactions cette semaine 💛"
+    return f"{captured} moment{'s' if captured > 1 else ''} capturé{'s' if captured > 1 else ''} cette semaine — continue à garder trace."

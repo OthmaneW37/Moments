@@ -13,6 +13,7 @@ import Recap from './components/Recap'
 import Timeline from './components/Timeline'
 import Icon from './components/Icon'
 import UserSheet from './components/UserSheet'
+import MomentViewer from './components/MomentViewer'
 import Messages from './components/Messages'
 import SearchUsers from './components/SearchUsers'
 import SharedMoment from './components/SharedMoment'
@@ -38,10 +39,22 @@ export default function App() {
   const [dmUnread, setDmUnread] = useState(0)
   const [dmWith, setDmWith] = useState(null) // ouvrir directement une conv
   const [userSheet, setUserSheet] = useState(null) // profil ouvert depuis Profil/Notifs
+  const [momentViewer, setMomentViewer] = useState(null) // moment ouvert en deep-link
 
   // Route publique de partage : /s/<token> — aucune authentification requise
   const sharePath = window.location.pathname.match(/^\/s\/([a-zA-Z0-9]+)/)
   const openMessages = (username) => { setDmWith(username || null); setView('messages') }
+
+  // Ouvre un moment précis en plein écran (deep-link depuis une notification)
+  async function openMoment(eventId) {
+    try {
+      const m = await api.momentById(eventId)
+      setMomentViewer(m)
+    } catch {
+      setView('feed') // moment introuvable / plus visible : repli sur le feed
+      toast.info('Ce moment n\'est plus disponible')
+    }
+  }
 
   useEffect(() => {
     if (!getToken()) { setAuthChecked(true); return }
@@ -190,6 +203,7 @@ export default function App() {
             goProfile={() => setView('profile')}
             goFeed={() => setView('feed')}
             goMessages={openMessages}
+            onOpenMoment={openMoment}
           />
         )}
 
@@ -311,6 +325,14 @@ export default function App() {
 
       {capturing && (
         <NewMoment onDone={handleMomentPosted} onCancel={() => setCapturing(false)} />
+      )}
+
+      {momentViewer && (
+        <MomentViewer
+          moments={[momentViewer]}
+          index={0}
+          onClose={() => setMomentViewer(null)}
+        />
       )}
 
       <ToastHost />

@@ -215,13 +215,87 @@ function Slide({ moment, onOpenUser, onOpenContext }) {
   )
 }
 
-export default function ImmersiveFeed({ moments, onOpenUser, onOpenContext }) {
+export default function ImmersiveFeed({ moments, onOpenUser, onOpenContext, onRefresh }) {
   const ordered = orderMoments(moments)
+  const scrollerRef = useRef(null)
+  const [pull, setPull] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const startY = useRef(null)
+  const pullRef = useRef(0)
+
+  const THRESHOLD = 68
+
+  // Tirer-pour-rafraîchir : geste natif quand on est en haut du feed
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el || !onRefresh) return
+
+    const setPullValue = (v) => { pullRef.current = v; setPull(v) }
+
+    function onStart(e) {
+      startY.current = el.scrollTop <= 0 && !refreshing ? e.touches[0].clientY : null
+    }
+    function onMove(e) {
+      if (startY.current === null) return
+      const dy = e.touches[0].clientY - startY.current
+      if (dy > 0 && el.scrollTop <= 0) {
+        e.preventDefault()
+        if (!dragging) setDragging(true)
+        setPullValue(Math.min(120, dy * 0.5)) // résistance
+      } else {
+        startY.current = null
+        setDragging(false)
+        setPullValue(0)
+      }
+    }
+    async function onEnd() {
+      if (startY.current === null) return
+      startY.current = null
+      setDragging(false)
+      if (pullRef.current >= THRESHOLD) {
+        setRefreshing(true)
+        setPullValue(52)
+        try { await onRefresh() } catch { /* l'appelant gère */ }
+        setRefreshing(false)
+      }
+      setPullValue(0)
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [onRefresh, refreshing, dragging])
+
+  const ready = pull >= THRESHOLD
   return (
-    <div className="ifeed-scroller">
-      {ordered.map((m) => (
-        <Slide key={m.id} moment={m} onOpenUser={onOpenUser} onOpenContext={onOpenContext} />
-      ))}
+    <div className="ifeed-wrap">
+      {(pull > 0 || refreshing) && (
+        <div className="ifeed-refresh" style={{ opacity: Math.min(1, pull / THRESHOLD) }}>
+          <span className={`ifeed-refresh-icon ${refreshing ? 'spin' : ''}`}>
+            {refreshing ? '↻' : ready ? '↑' : '↓'}
+          </span>
+          <span className="ifeed-refresh-label">
+            {refreshing ? 'Actualisation…' : ready ? 'Relâche pour actualiser' : 'Tire pour actualiser'}
+          </span>
+        </div>
+      )}
+      <div
+        className="ifeed-scroller"
+        ref={scrollerRef}
+        style={{ transform: pull ? `translateY(${pull}px)` : undefined, transition: dragging ? 'none' : 'transform 0.28s ease' }}
+      >
+        {ordered.map((m) => (
+          <Slide key={m.id} moment={m} onOpenUser={onOpenUser} onOpenContext={onOpenContext} />
+        ))}
+      </div>
     </div>
   )
 }

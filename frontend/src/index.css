@@ -536,16 +536,29 @@ button { font-family: inherit; color: inherit; }
 .screen--immersive { padding: 0; overflow: hidden; }
 .ifeed-empty { padding: 40px 24px; }
 
+.ifeed-wrap { position: relative; height: 100%; overflow: hidden; background: #000; }
 .ifeed-scroller {
   height: 100%;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain; /* pas de pull-to-refresh qui casse le snap */
+  overscroll-behavior: contain; /* pas de pull-to-refresh natif qui casse le snap */
   background: #000;
+  will-change: transform;
 }
 .ifeed-scroller::-webkit-scrollbar { display: none; }
+
+/* Tirer-pour-rafraîchir */
+.ifeed-refresh {
+  position: absolute; top: 0; left: 0; right: 0; height: 52px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: #f6e8d6; z-index: 1; pointer-events: none;
+}
+.ifeed-refresh-icon { font-size: 1.3rem; line-height: 1; }
+.ifeed-refresh-icon.spin { animation: ptr-spin 0.7s linear infinite; }
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
+.ifeed-refresh-label { font-size: 0.7rem; font-weight: 600; opacity: 0.85; }
 
 .ifeed-slide {
   position: relative;
@@ -1340,8 +1353,15 @@ button { font-family: inherit; color: inherit; }
   border-radius: 12px; padding: 14px 16px;
   box-shadow: var(--shadow-soft);
 }
-.week-headline { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 3px; }
-.week-text { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.week-summary-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.week-insight-badge {
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--accent-deep); background: var(--accent-tint);
+  padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
+}
+.week-headline { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; }
+.week-insight { margin: 0 0 6px; font-size: 0.98rem; line-height: 1.4; color: var(--ink); }
+.week-text { margin: 0; font-size: 0.8rem; color: var(--muted); }
 
 /* ---- Streak ---- */
 .streak-banner {

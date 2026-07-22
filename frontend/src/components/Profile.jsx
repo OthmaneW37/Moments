@@ -195,8 +195,12 @@ export default function Profile({ user, onLogout, onUserChange, onOpenRecap, onO
 
       {summary && (
         <div className="week-summary">
-          <div className="week-headline">{summary.headline}</div>
-          <p className="week-text">{summary.text}</p>
+          <div className="week-summary-top">
+            <span className="week-insight-badge">Ta semaine</span>
+            <span className="week-headline">{summary.headline}</span>
+          </div>
+          {summary.insight && <p className="week-insight">{summary.insight}</p>}
+          <p className="week-text muted">{summary.text}</p>
         </div>
       )}
 

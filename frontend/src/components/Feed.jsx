@@ -20,6 +20,9 @@ export default function Feed({ onMessage }) {
 
   useEffect(load, [load])
 
+  // Rafraîchit sans vider l'écran (pour le tirer-pour-rafraîchir)
+  const refresh = useCallback(() => api.feed().then(setMoments).catch(() => {}), [])
+
   if (error) return <ErrorState message="Impossible de charger ton feed." onRetry={load} />
   if (moments === null) return <FeedSkeleton />
 
@@ -43,6 +46,7 @@ export default function Feed({ onMessage }) {
         moments={moments}
         onOpenUser={(u) => { setCtxSheet(null); setUserSheet(u) }}
         onOpenContext={(c) => { setUserSheet(null); setCtxSheet(c) }}
+        onRefresh={refresh}
       />
       {userSheet && (
         <UserSheet

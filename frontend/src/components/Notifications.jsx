@@ -38,7 +38,7 @@ function bucketOf(sqlDate) {
 }
 const BUCKET_ORDER = ['Aujourd\'hui', 'Hier', 'Cette semaine', 'Plus tôt']
 
-export default function Notifications({ data, onSeen, goProfile, goFeed, goMessages }) {
+export default function Notifications({ data, onSeen, goProfile, goFeed, goMessages, onOpenMoment }) {
   // Fige la liste des notifs "nouvelles" à l'ouverture : elles restent
   // mises en avant pendant la consultation, même après le marquage lu.
   const newIds = useRef(null)
@@ -65,6 +65,7 @@ export default function Notifications({ data, onSeen, goProfile, goFeed, goMessa
   function handleClick(n) {
     if (n.type === 'message') goMessages?.(n.actor.username)
     else if (n.type.startsWith('friend') || n.type.startsWith('follow')) goProfile()
+    else if ((n.type === 'like' || n.type === 'comment') && n.event_id && onOpenMoment) onOpenMoment(n.event_id)
     else goFeed?.()
   }
 

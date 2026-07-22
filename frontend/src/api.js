@@ -86,6 +86,7 @@ export const api = {
   // --- Social ---
   feed: () => request('/api/feed'),
   discover: () => request('/api/discover'),
+  momentById: (id) => request(`/api/events/${id}/moment`),
   react: (eventId, emoji) => jsonPost(`/api/events/${eventId}/react`, { emoji }),
   eventReactions: (eventId) => request(`/api/events/${eventId}/reactions`),
   follow: (username) => jsonPost(`/api/users/${encodeURIComponent(username)}/follow`, {}),
