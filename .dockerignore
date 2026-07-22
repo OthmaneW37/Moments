@@ -1,0 +1,10 @@
+# Contexte de build minimal : on ne garde que le backend
+frontend/
+backend/.venv/
+backend/moments.db
+backend/uploads/
+backend/secret.key
+**/__pycache__/
+*.pyc
+*.log
+.git/

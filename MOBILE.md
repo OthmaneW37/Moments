@@ -9,8 +9,9 @@ Deux grandes étapes : **(A) déployer le backend**, puis **(B) construire l'app
 
 ---
 
-Le backend a un [`Dockerfile`](backend/Dockerfile) : il se déploie sur
-n'importe quelle plateforme (Fly.io, Railway, Koyeb, Render…). Choisis-en une.
+Le backend a un [`Dockerfile`](Dockerfile) **à la racine** du repo : il se
+déploie tel quel sur n'importe quelle plateforme (Fly.io, Railway, Koyeb,
+Render…), que ce soit via leur site web ou en ligne de commande. Choisis-en une.
 
 > ⚠️ **Stockage éphémère** (vrai sur tous les plans gratuits) : la base et les
 > photos sont réinitialisées quand le serveur redémarre / se met en veille.
@@ -19,27 +20,27 @@ n'importe quelle plateforme (Fly.io, Railway, Koyeb, Render…). Choisis-en une.
 
 ### Option 1 — Fly.io (Dockerfile, recommandé)
 
-Le point crucial : **lance la commande depuis le dossier `backend/`**, pas la
-racine du repo (sinon Fly ne trouve pas le Dockerfile → « Could not find a
-Dockerfile »).
+**Via le site (le plus simple)** : sur fly.io, « Deploy from GitHub » → repo
+**Moments**. Le Dockerfile à la racine est maintenant détecté automatiquement.
+Après le déploiement, va dans **Secrets** et ajoute `MOMENTS_SECRET` (une longue
+chaîne aléatoire) pour garder les sessions stables entre redémarrages.
+
+**Via la ligne de commande** (depuis la racine du repo, plus besoin de `cd backend`) :
 
 ```bash
-cd backend
-fly launch            # détecte le Dockerfile, génère fly.toml. Réponds "No" au déploiement immédiat.
-fly secrets set MOMENTS_SECRET=$(openssl rand -hex 32)   # sessions stables
+fly launch            # détecte le Dockerfile racine, génère fly.toml. Réponds "No" au déploiement immédiat.
+fly secrets set MOMENTS_SECRET=$(openssl rand -hex 32)
 fly deploy
 ```
 
-À la fin, `fly deploy` (ou `fly open`) te donne l'URL, du type
-**`https://moments-xxxx.fly.dev`**. Note-la.
+À la fin tu obtiens une URL du type **`https://moments-xxxx.fly.dev`**. Note-la.
 
 ### Option 2 — Railway
 
 1. **railway.app** → New Project → Deploy from GitHub → dépôt **Moments**.
-2. Dans le service : **Settings → Root Directory = `backend`**
-   (Railway détecte alors le Dockerfile).
-3. **Variables** : ajoute `MOMENTS_SECRET` (une longue chaîne aléatoire).
-4. **Settings → Networking → Generate Domain** pour obtenir l'URL publique.
+   (Le Dockerfile racine est détecté automatiquement.)
+2. **Variables** : ajoute `MOMENTS_SECRET` (une longue chaîne aléatoire).
+3. **Settings → Networking → Generate Domain** pour obtenir l'URL publique.
 
 ### Option 3 — Render (Blueprint)
 
