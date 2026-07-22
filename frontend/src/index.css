@@ -1537,3 +1537,26 @@ button { font-family: inherit; color: inherit; }
 .error-state p { color: var(--muted); margin: 0; max-width: 260px; }
 
 .comments-loading { display: flex; flex-direction: column; gap: 8px; padding: 14px 4px; }
+
+/* ---- Notifications : sections temporelles ---- */
+.notif-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.notif-newcount {
+  font-size: 0.72rem; font-weight: 800; color: #fff; background: var(--accent);
+  padding: 2px 9px; border-radius: 999px;
+}
+.notif-section { margin-top: 8px; }
+.notif-section-title {
+  font-family: var(--font-body); font-size: 0.72rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  margin: 14px 4px 6px;
+}
+
+/* ---- Agenda : bouton d'ajout dans l'en-tête du jour ---- */
+.day-header-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.day-add {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accent-tint); color: var(--accent-deep); border: 0;
+  font-size: 1.3rem; line-height: 1; cursor: pointer; font-weight: 500;
+  display: flex; align-items: center; justify-content: center;
+}
+.day-add:active { transform: scale(0.92); }

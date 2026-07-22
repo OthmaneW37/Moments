@@ -19,6 +19,8 @@ import SharedMoment from './components/SharedMoment'
 import ToastHost from './components/ToastHost'
 import { toast } from './toast'
 
+const isFutureOrToday = (iso) => iso >= toISO(new Date())
+
 export default function App() {
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -75,11 +77,23 @@ export default function App() {
   useEffect(() => { refresh().catch(console.error) }, [refresh])
 
   async function handleSave(data) {
-    if (editing) await api.updateEvent(editing.id, data)
-    else await api.createEvent(data)
-    setFormOpen(false)
+    const wasEditing = !!editing
+    try {
+      if (editing) await api.updateEvent(editing.id, data)
+      else await api.createEvent(data)
+      setFormOpen(false)
+      setEditing(null)
+      refresh()
+      toast.success(wasEditing ? 'Modifications enregistrées' : 'Moment ajouté à ton agenda')
+    } catch {
+      toast.error('Enregistrement impossible, réessaie')
+    }
+  }
+
+  // Planifier un moment sur la date affichée (agenda) — distinct du + qui capture maintenant
+  function openPlanForDay() {
     setEditing(null)
-    refresh()
+    setFormOpen(true)
   }
 
   function openNewMoment() {
@@ -192,12 +206,17 @@ export default function App() {
               <>
                 <WeekStrip selectedDate={date} summary={weekSummary} onSelect={setDate} />
                 <div className="day-header">
-                  <h1>{prettyDate(date)}</h1>
+                  <div className="day-header-top">
+                    <h1>{prettyDate(date)}</h1>
+                    {events.length > 0 && (
+                      <button className="day-add" onClick={openPlanForDay} aria-label="Planifier un moment ce jour">＋</button>
+                    )}
+                  </div>
                   <div className="day-sub">
                     <p className="muted">
                       {events.length === 0
                         ? 'Rien de prévu'
-                        : `${events.length} moment(s) · ${captured} capturé(s) 📸`}
+                        : `${events.length} moment${events.length > 1 ? 's' : ''} · ${captured} capturé${captured > 1 ? 's' : ''} 📸`}
                     </p>
                     {date !== toISO(new Date()) && (
                       <button className="link-btn" onClick={() => setDate(toISO(new Date()))}>
@@ -210,9 +229,15 @@ export default function App() {
                 {events.length === 0 ? (
                   <div className="empty-state">
                     <span className="empty-emoji">🗓️</span>
-                    <h3>Journée libre</h3>
-                    <p>Une vidéo au petit-déj, un ciné à midi, la finale au café ce soir…</p>
-                    <button className="btn primary" onClick={openNewMoment}>Planifier un moment</button>
+                    <h3>{date === toISO(new Date()) ? 'Journée libre' : 'Rien ce jour-là'}</h3>
+                    <p>
+                      {isFutureOrToday(date)
+                        ? 'Planifie ce que tu comptes vivre — un ciné, un match, un café — puis capture-le le moment venu.'
+                        : 'Ajoute après coup un moment que tu as vécu ce jour-là.'}
+                    </p>
+                    <button className="btn primary" onClick={openPlanForDay}>
+                      {isFutureOrToday(date) ? 'Planifier un moment' : 'Ajouter un souvenir'}
+                    </button>
                   </div>
                 ) : (
                   <div className="event-list">
