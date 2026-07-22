@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { api } from './api'
 
+// Petit retour haptique sur mobile (ignoré si non supporté)
+function haptic(ms = 10) {
+  try { navigator.vibrate?.(ms) } catch { /* non supporté */ }
+}
+
 // État + logique de réaction partagés entre la carte du feed et la vue plein écran.
 export function useReaction(moment) {
   const [reactions, setReactions] = useState(moment.reactions || {})
@@ -9,6 +14,7 @@ export function useReaction(moment) {
 
   async function react(emoji) {
     const prev = { reactions, myReaction, total }
+    haptic()
     // Mise à jour optimiste
     const next = { ...reactions }
     if (myReaction) next[myReaction] = Math.max(0, (next[myReaction] || 1) - 1)
