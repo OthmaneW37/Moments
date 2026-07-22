@@ -334,7 +334,9 @@ button { font-family: inherit; color: inherit; }
   position: fixed; inset: 0; background: rgba(38, 30, 18, 0.45);
   display: flex; align-items: flex-end; justify-content: center;
   z-index: 50;
+  animation: backdrop-in 0.2s ease-out;
 }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 .modal {
   background: var(--paper); border-top: 1px solid var(--border-strong);
   border-radius: 18px 18px 0 0;
@@ -670,7 +672,13 @@ button { font-family: inherit; color: inherit; }
 /* ---- Viewer plein écran (façon TikTok) ---- */
 .viewer {
   position: fixed; inset: 0; z-index: 50; background: #000;
+  animation: viewer-in 0.24s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
+@keyframes viewer-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .viewer { animation: none; } }
 .viewer-close {
   position: absolute; top: 14px; right: 14px; z-index: 60;
   width: 38px; height: 38px; border-radius: 50%;

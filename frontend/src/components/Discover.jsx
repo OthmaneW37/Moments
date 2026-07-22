@@ -33,7 +33,9 @@ export default function Discover({ onMessage }) {
       <div className="discover-head">
         <h1 className="page-title">Découverte</h1>
         <p className="muted">
-          Les moments publics {data.city ? <>autour de <strong>{data.city}</strong></> : 'de la communauté'}
+          {data.moments.length === 0
+            ? <>Les moments publics {data.city ? <>autour de <strong>{data.city}</strong></> : 'de la communauté'}</>
+            : <><strong>{data.moments.length}</strong> moment{data.moments.length > 1 ? 's' : ''} à découvrir {data.city ? <>près de <strong>{data.city}</strong></> : 'dans la communauté'}</>}
         </p>
       </div>
 

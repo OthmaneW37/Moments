@@ -65,7 +65,7 @@ export default function Notifications({ data, onSeen, goProfile, goFeed, goMessa
   function handleClick(n) {
     if (n.type === 'message') goMessages?.(n.actor.username)
     else if (n.type.startsWith('friend') || n.type.startsWith('follow')) goProfile()
-    else if ((n.type === 'like' || n.type === 'comment') && n.event_id && onOpenMoment) onOpenMoment(n.event_id)
+    else if ((n.type === 'like' || n.type === 'comment') && n.event_id && onOpenMoment) onOpenMoment(n.event_id, { comments: n.type === 'comment' })
     else goFeed?.()
   }
 

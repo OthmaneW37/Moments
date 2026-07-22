@@ -35,6 +35,7 @@ export default function App() {
   const [editing, setEditing] = useState(null)
   const [capturing, setCapturing] = useState(false) // écran capture-first du +
   const [feedNonce, setFeedNonce] = useState(0)     // force le refetch du feed après un post
+  const [reloadKey, setReloadKey] = useState(0)     // re-tap de l'onglet actif = recharge + retour en haut
   const [notifs, setNotifs] = useState(null)
   const [dmUnread, setDmUnread] = useState(0)
   const [dmWith, setDmWith] = useState(null) // ouvrir directement une conv
@@ -45,11 +46,20 @@ export default function App() {
   const sharePath = window.location.pathname.match(/^\/s\/([a-zA-Z0-9]+)/)
   const openMessages = (username) => { setDmWith(username || null); setView('messages') }
 
+  // Navigation : re-taper l'onglet de contenu déjà actif recharge et remonte en haut
+  function navTo(target) {
+    if (view === target && (target === 'feed' || target === 'discover')) {
+      setReloadKey((k) => k + 1)
+    } else {
+      setView(target)
+    }
+  }
+
   // Ouvre un moment précis en plein écran (deep-link depuis une notification)
-  async function openMoment(eventId) {
+  async function openMoment(eventId, opts = {}) {
     try {
       const m = await api.momentById(eventId)
-      setMomentViewer(m)
+      setMomentViewer({ moment: m, openComments: !!opts.comments })
     } catch {
       setView('feed') // moment introuvable / plus visible : repli sur le feed
       toast.info('Ce moment n\'est plus disponible')
@@ -182,9 +192,9 @@ export default function App() {
       </header>
 
       <div className={`screen ${view === 'feed' ? 'screen--immersive' : ''}`}>
-        {view === 'feed' && <Feed key={`${date}-${feedNonce}`} onMessage={openMessages} />}
+        {view === 'feed' && <Feed key={`${date}-${feedNonce}-${reloadKey}`} onMessage={openMessages} />}
 
-        {view === 'discover' && <Discover onMessage={openMessages} />}
+        {view === 'discover' && <Discover key={`discover-${reloadKey}`} onMessage={openMessages} />}
 
         {view === 'search' && <SearchUsers onOpenUser={setUserSheet} />}
 
@@ -284,11 +294,11 @@ export default function App() {
       </div>
 
       <nav className="bottom-nav">
-        <button className={`nav-item ${view === 'feed' ? 'active' : ''}`} onClick={() => setView('feed')}>
+        <button className={`nav-item ${view === 'feed' ? 'active' : ''}`} onClick={() => navTo('feed')}>
           <Icon emoji="🫂" size="24" className="nav-icon" />
           <span className="nav-label">Feed</span>
         </button>
-        <button className={`nav-item ${view === 'discover' ? 'active' : ''}`} onClick={() => setView('discover')}>
+        <button className={`nav-item ${view === 'discover' ? 'active' : ''}`} onClick={() => navTo('discover')}>
           <Icon emoji="🌍" size="24" className="nav-icon" />
           <span className="nav-label">Découverte</span>
         </button>
@@ -329,8 +339,9 @@ export default function App() {
 
       {momentViewer && (
         <MomentViewer
-          moments={[momentViewer]}
+          moments={[momentViewer.moment]}
           index={0}
+          openComments={momentViewer.openComments}
           onClose={() => setMomentViewer(null)}
         />
       )}

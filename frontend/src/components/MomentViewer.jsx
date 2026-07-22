@@ -14,12 +14,12 @@ function dateLabel(iso) {
   return prettyDate(iso)
 }
 
-function Slide({ moment }) {
+function Slide({ moment, openComments }) {
   const meta = CATEGORY_META[moment.category] ?? CATEGORY_META.autre
   const { author } = moment
   const { myReaction, total, react, likeOnDoubleTap } = useReaction(moment)
   const [burst, setBurst] = useState(0)
-  const [sheet, setSheet] = useState(null) // null | 'react' | 'comments'
+  const [sheet, setSheet] = useState(openComments ? 'comments' : null) // null | 'react' | 'comments'
   const [commentCount, setCommentCount] = useState(moment.comments || 0)
   const lastTap = useRef(0)
 
@@ -107,7 +107,7 @@ function Slide({ moment }) {
   )
 }
 
-export default function MomentViewer({ moments, index = 0, onClose }) {
+export default function MomentViewer({ moments, index = 0, onClose, openComments = false }) {
   const scrollerRef = useRef(null)
 
   // Positionne le scroll sur le moment ouvert + verrouille le scroll de fond
@@ -129,7 +129,9 @@ export default function MomentViewer({ moments, index = 0, onClose }) {
     <div className="viewer">
       <button className="viewer-close" onClick={onClose} aria-label="Fermer">✕</button>
       <div className="viewer-scroller" ref={scrollerRef}>
-        {moments.map((m) => <Slide key={m.id} moment={m} />)}
+        {moments.map((m, i) => (
+          <Slide key={m.id} moment={m} openComments={openComments && i === index} />
+        ))}
       </div>
     </div>
   )
