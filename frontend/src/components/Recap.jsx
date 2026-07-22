@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, CATEGORY_META, prettyDate } from '../api'
+import { api, CATEGORY_META, mediaUrl, prettyDate } from '../api'
 
 function buildHeatmapCells(heatmap) {
   // Colonnes = semaines, lignes = Lun..Dim
@@ -83,7 +83,7 @@ export default function Recap({ onBack }) {
               <h2>Ton moment star</h2>
               <div className="top-moment" style={{ '--cat': topMeta.color }}>
                 {data.top_moment.photo_url && (
-                  <img src={data.top_moment.photo_url} alt={data.top_moment.title} loading="lazy" />
+                  <img src={mediaUrl(data.top_moment.photo_url)} alt={data.top_moment.title} loading="lazy" />
                 )}
                 <div className="top-moment-body">
                   <span className="event-cat">{topMeta.emoji} {topMeta.label}</span>

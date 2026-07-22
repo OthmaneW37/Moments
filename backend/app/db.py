@@ -1,9 +1,10 @@
 """SQLite helpers for Moments — Phase 3 (réactions, découverte, tags IA)."""
 import json
 import sqlite3
-from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "moments.db"
+from .config import DATA_DIR
+
+DB_PATH = DATA_DIR / "moments.db"
 
 
 def get_conn() -> sqlite3.Connection:

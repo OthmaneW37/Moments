@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .auth import create_token, current_user, hash_password, verify_password
+from .config import DATA_DIR
 from .context import search_context
 from .db import (friend_ids, follower_ids, following_ids, get_conn, init_db,
                  notify, photos_for_events, row_to_event)
@@ -24,8 +25,8 @@ from .vision import analyze_photo
 REACTION_EMOJIS = ["❤️", "🔥", "😂", "😍", "😮", "👏"]
 VISIBILITIES = {"friends", "public"}
 
-UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
-UPLOADS_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR = DATA_DIR / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 VIDEO_EXT = {".mp4", ".webm", ".mov", ".m4v", ".ogg"}
@@ -41,7 +42,10 @@ app = FastAPI(title="Moments API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    # Auth par jeton Bearer (pas de cookie) → on peut autoriser toutes les
+    # origines : navigateur en dev, frontend déployé, et l'app native
+    # Capacitor (origines capacitor://localhost, http(s)://localhost…).
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

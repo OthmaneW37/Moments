@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api } from '../api'
+import { api, PUBLIC_URL } from '../api'
 import Icon from './Icon'
 
 // Bouton de partage d'un moment : génère un lien public puis ouvre le partage
@@ -11,7 +11,7 @@ export default function ShareButton({ eventId, className = '' }) {
     e.stopPropagation()
     try {
       const { path } = await api.shareEvent(eventId)
-      const url = `${window.location.origin}${path}`
+      const url = `${PUBLIC_URL}${path}`
       if (navigator.share) {
         await navigator.share({ title: 'Un moment sur Moments', url })
       } else {

@@ -1,19 +1,24 @@
 """Auth — hashing de mot de passe (stdlib) + tokens JWT."""
 import hashlib
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import jwt
 from fastapi import Header, HTTPException
 
+from .config import DATA_DIR
 from .db import get_conn
 
-# Clé secrète persistée localement (générée au premier lancement)
-_SECRET_FILE = Path(__file__).resolve().parent.parent / "secret.key"
-if not _SECRET_FILE.exists():
-    _SECRET_FILE.write_text(secrets.token_hex(32))
-SECRET_KEY = _SECRET_FILE.read_text().strip()
+# Clé secrète : env `MOMENTS_SECRET` en priorité (recommandé en prod pour ne pas
+# invalider les sessions à chaque redéploiement), sinon fichier local persistant.
+_SECRET_FILE = DATA_DIR / "secret.key"
+if os.environ.get("MOMENTS_SECRET"):
+    SECRET_KEY = os.environ["MOMENTS_SECRET"].strip()
+else:
+    if not _SECRET_FILE.exists():
+        _SECRET_FILE.write_text(secrets.token_hex(32))
+    SECRET_KEY = _SECRET_FILE.read_text().strip()
 
 ALGO = "HS256"
 TOKEN_DAYS = 30
@@ -58,7 +63,8 @@ def current_user(authorization: str | None = Header(default=None)) -> dict:
 
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, username, display_name, emoji, city, created_at FROM users WHERE id = ?",
+            "SELECT id, username, display_name, emoji, city, is_private, created_at "
+            "FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
     if row is None:

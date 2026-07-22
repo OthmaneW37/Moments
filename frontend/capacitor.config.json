@@ -1,0 +1,9 @@
+{
+  "appId": "com.othmane.moments",
+  "appName": "Moments",
+  "webDir": "dist",
+  "backgroundColor": "#f6f2ea",
+  "android": {
+    "backgroundColor": "#f6f2ea"
+  }
+}

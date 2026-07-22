@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, CATEGORY_META } from '../api'
+import { api, CATEGORY_META, mediaUrl } from '../api'
 
 export default function Memories() {
   const [memories, setMemories] = useState([])
@@ -19,7 +19,7 @@ export default function Memories() {
           const photo = m.photos[0]
           return (
             <div className="memory-card" key={m.id} style={{ '--cat': meta.color }}>
-              {photo && <img src={photo.url} alt={m.title} loading="lazy" />}
+              {photo && <img src={mediaUrl(photo.url)} alt={m.title} loading="lazy" />}
               <div className="memory-overlay">
                 <span className="memory-label">{m.memory_label}</span>
                 <span className="memory-title">{meta.emoji} {m.title}</span>

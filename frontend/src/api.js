@@ -1,4 +1,21 @@
-// Client API — toutes les requêtes passent par le proxy Vite (/api -> backend)
+// Client API.
+// En dev : chemins relatifs (/api) via le proxy Vite.
+// En prod / app native : VITE_API_URL pointe vers le backend déployé.
+export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+
+// URL publique du frontend (pour les liens de partage). Dans l'app native,
+// window.location.origin vaut capacitor://localhost — on utilise donc l'URL
+// du site déployé quand elle est fournie.
+export const PUBLIC_URL = (import.meta.env.VITE_PUBLIC_URL || '').replace(/\/$/, '')
+  || (typeof window !== 'undefined' ? window.location.origin : '')
+
+// Transforme un chemin média renvoyé par l'API (ex: /uploads/x.jpg) en URL
+// absolue quand un backend distant est configuré ; sinon laisse tel quel.
+export function mediaUrl(path) {
+  if (!path) return path
+  if (/^https?:\/\//.test(path)) return path
+  return API_BASE + path
+}
 
 const TOKEN_KEY = 'moments_token'
 
@@ -23,7 +40,7 @@ async function request(url, options = {}) {
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(url, { ...options, headers })
+  const res = await fetch(API_BASE + url, { ...options, headers })
   if (!res.ok) {
     let detail = res.statusText
     try {

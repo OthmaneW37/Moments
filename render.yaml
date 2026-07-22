@@ -1,0 +1,32 @@
+# Blueprint de déploiement Render — https://render.com
+#
+# Déploiement du backend Moments (API FastAPI).
+# Sur Render : New + → Blueprint → connecte ce dépôt GitHub → Apply.
+#
+# Note stockage : le plan gratuit a un disque EPHÉMÈRE (la base SQLite et les
+# photos sont réinitialisées à chaque redéploiement / mise en veille). Pour
+# conserver les données, décommente le bloc `disk` ci-dessous (nécessite un
+# plan payant) et remets MOMENTS_DATA_DIR sur /var/data.
+
+services:
+  - type: web
+    name: moments-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      # Clé de signature des sessions (générée une fois, stable entre déploiements)
+      - key: MOMENTS_SECRET
+        generateValue: true
+    # --- Persistance (plan payant) : décommente pour garder les données ---
+    # disk:
+    #   name: moments-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # puis ajoute dans envVars :
+    #   - key: MOMENTS_DATA_DIR
+    #     value: /var/data

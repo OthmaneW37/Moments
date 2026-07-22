@@ -12,6 +12,10 @@ backend/secret.key
 frontend/node_modules/
 frontend/dist/
 
+# Vite : env de prod (contient l'URL du backend déployé)
+frontend/.env.production
+frontend/.env.local
+
 # Divers
 .DS_Store
 *.log

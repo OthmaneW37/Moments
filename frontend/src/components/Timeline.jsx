@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, CATEGORY_META, prettyDate } from '../api'
+import { api, CATEGORY_META, mediaUrl, prettyDate } from '../api'
 import Memories from './Memories'
 
 export default function Timeline() {
@@ -38,8 +38,8 @@ export default function Timeline() {
                 </div>
                 <div className="photo-row large">
                   {m.photos.map((p) => (
-                    <a className="thumb" key={p.id} href={p.url} target="_blank" rel="noreferrer">
-                      <img src={p.url} alt={m.title} loading="lazy" />
+                    <a className="thumb" key={p.id} href={mediaUrl(p.url)} target="_blank" rel="noreferrer">
+                      <img src={mediaUrl(p.url)} alt={m.title} loading="lazy" />
                     </a>
                   ))}
                 </div>

@@ -57,9 +57,16 @@ There is **no automated test suite**. Verify changes by exercising the API (e.g.
 - **Categories must stay in sync**: backend `CATEGORIES` (main.py) and frontend `CATEGORY_META` (api.js) list the same keys. Reaction set is `REACTION_EMOJIS` in both `main.py` and `api.js`.
 - Photos are written to `backend/uploads/` and served at `/uploads`; tags are computed on upload and stored as a JSON string in `photos.tags`.
 
-## Not in version control yet
+## Deployment & native app
 
-The project is **not a git repository**. `.gitignore` already excludes `backend/.venv/`, `backend/moments.db`, `backend/uploads/`, `backend/secret.key`, and `frontend/node_modules/`.
+- **Config via env (`backend/app/config.py`):** `DATA_DIR` (from `MOMENTS_DATA_DIR`, default = backend root) holds `moments.db`, `uploads/`, and `secret.key`. `auth.py` prefers `MOMENTS_SECRET` from env over the key file. CORS is `allow_origins=["*"]` (safe: Bearer-token auth, no cookies) so the native app and any deployed frontend can call it.
+- **Backend deploy:** [`render.yaml`](render.yaml) blueprint (FastAPI on Render). Free tier = ephemeral storage; a persistent disk block is documented but commented out.
+- **Frontend API base:** `api.js` exports `API_BASE` (`VITE_API_URL`, empty in dev → relative paths via the Vite proxy), `PUBLIC_URL` (`VITE_PUBLIC_URL` for share links), and **`mediaUrl(path)`** which absolutises `/uploads/...` URLs for the native app. All moment media flows through `<Media>` (→ `mediaUrl`); a few personal-view thumbnails (Timeline/Memories/Recap) call `mediaUrl` directly. External poster images (ContextCard) stay untouched.
+- **Native shell:** Capacitor (`frontend/capacitor.config.json`, appId `com.othmane.moments`). `frontend/android/` is the committed Android project (build artifacts gitignored). Build flow: set `frontend/.env.production` (`VITE_API_URL`), `npm run build && npx cap sync android`, then Android Studio. iOS is added later on a Mac. Full steps in [`MOBILE.md`](MOBILE.md).
+
+## Version control
+
+Git repo at `github.com/OthmaneW37/Moments`. `.gitignore` excludes `backend/.venv/`, `backend/moments.db`, `backend/uploads/`, `backend/secret.key`, `frontend/node_modules/`, `frontend/dist/`, and `frontend/.env.production`.
 
 # Frontend rules
 
