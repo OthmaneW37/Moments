@@ -140,6 +140,7 @@ export default function EventForm({ date, initial, onSave, onCancel }) {
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+        <div className="modal-handle" />
         <h2>{initial ? 'Modifier le moment' : 'Nouveau moment'}</h2>
 
         <label>

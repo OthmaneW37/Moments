@@ -3,6 +3,8 @@ import { api, CATEGORY_META, CONTEXT_SEARCH, toISO } from '../api'
 import { ContextPicker } from './EventForm'
 import Icon from './Icon'
 
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+
 // Création d'un moment "sur le vif" : on capture d'abord une photo/vidéo,
 // puis on renseigne le titre, la catégorie, le contexte et l'audience.
 // Pas de début/fin ni de notes — c'est l'instant présent.
@@ -13,27 +15,38 @@ export default function NewMoment({ onDone, onCancel }) {
   const [form, setForm] = useState({ title: '', category: 'autre', visibility: 'friends', context: null })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const fileRef = useRef(null)
   const opened = useRef(false)
 
-  // Ouvre l'appareil photo / la galerie dès l'arrivée sur l'écran
+  const openCamera = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Prompt
+      });
+      const response = await fetch(image.webPath);
+      const blob = await response.blob();
+      const f = new File([blob], "moment.jpg", { type: "image/jpeg" })
+      
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setFile(f)
+      setIsVideo(false) // Capacitor camera currently returns images here
+      setPreviewUrl(image.webPath)
+    } catch (e) {
+      // Utilisateur a annulé
+      if (!file) onCancel()
+    }
+  }
+
+  // Ouvre l'appareil photo dès l'arrivée sur l'écran
   useEffect(() => {
     if (!opened.current) {
       opened.current = true
-      fileRef.current?.click()
+      openCamera()
     }
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleFile(e) {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setFile(f)
-    setIsVideo(f.type.startsWith('video'))
-    setPreviewUrl(URL.createObjectURL(f))
-  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -74,7 +87,7 @@ export default function NewMoment({ onDone, onCancel }) {
           <Icon name="camera" size="72" />
           <h3>Capture l'instant</h3>
           <p className="muted">Prends une photo ou une vidéo — c'est ce qui se passe maintenant.</p>
-          <button className="btn primary big" onClick={() => fileRef.current?.click()}>
+          <button type="button" className="btn primary big" onClick={openCamera}>
             📸 Ouvrir l'appareil
           </button>
         </div>
@@ -84,7 +97,7 @@ export default function NewMoment({ onDone, onCancel }) {
             {isVideo
               ? <video src={previewUrl} muted loop autoPlay playsInline />
               : <img src={previewUrl} alt="Aperçu" />}
-            <button type="button" className="newmoment-retake" onClick={() => fileRef.current?.click()}>
+            <button type="button" className="newmoment-retake" onClick={openCamera}>
               Reprendre
             </button>
           </div>
@@ -157,13 +170,6 @@ export default function NewMoment({ onDone, onCancel }) {
         </form>
       )}
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*,video/*"
-        hidden
-        onChange={handleFile}
-      />
     </div>
   )
 }
